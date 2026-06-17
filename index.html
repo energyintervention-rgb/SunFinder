@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sun Finder</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FFAA00">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/JetBrains-Mono/2.304/jetbrains-mono.css" rel="stylesheet" onerror="this.remove()">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  /* ---- Token system ---- */
+  --sky-top-light:#bfe3f7;
+  --sky-bot-light:#fff3df;
+  --sky-top-dark:#040b1a;
+  --sky-bot-dark:#162a4d;
+
+  --sunrise:#ff9d3c;
+  --sunrise-glow:#ffd27a;
+  --sunset:#6b3fa0;
+  --sunset-glow:#ff5d6c;
+
+  --ink-light:#0c1626;
+  --ink-dark:#eef3fb;
+  --muted-light:rgba(12,22,38,0.6);
+  --muted-dark:rgba(238,243,251,0.6);
+
+  --panel-light:rgba(255,255,255,0.55);
+  --panel-dark:rgba(10,18,36,0.55);
+  --panel-border-light:rgba(12,22,38,0.08);
+  --panel-border-dark:rgba(255,255,255,0.08);
+
+  --radius:20px;
+  --radius-sm:12px;
+
+  --display:'Space Grotesk',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+
+[data-theme="light"]{
+  --sky-top:var(--sky-top-light);
+  --sky-bot:var(--sky-bot-light);
+  --ink:var(--ink-light);
+  --muted:var(--muted-light);
+  --panel:var(--panel-light);
+  --panel-border:var(--panel-border-light);
+}
+[data-theme="dark"]{
+  --sky-top:var(--sky-top-dark);
+  --sky-bot:var(--sky-bot-dark);
+  --ink:var(--ink-dark);
+  --muted:var(--muted-dark);
+  --panel:var(--panel-dark);
+  --panel-border:var(--panel-border-dark);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  font-family:var(--display);
+  color:var(--ink);
+  background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bot) 100%);
+  min-height:100vh;
+  overflow-x:hidden;
+  transition:background 0.6s ease,color 0.4s ease;
+}
+
+#app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+}
+
+/* ---------- top bar ---------- */
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:18px 20px 8px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:600;
+  font-size:15px;
+  letter-spacing:0.02em;
+}
+.brand .glyphs{font-size:14px;letter-spacing:2px;color:var(--sunrise);}
+.iconbtn{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(6px);
+  cursor:pointer;
+  font-size:16px;
+  color:var(--ink);
+}
+
+/* ---------- screens ---------- */
+.screen{display:none;flex:1;flex-direction:column;padding-bottom:88px;}
+.screen.active{display:flex;}
+
+/* ---------- location card ---------- */
+.location-card{
+  margin:4px 20px 18px;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.location-card .loc-text{display:flex;flex-direction:column;gap:2px;}
+.location-card .city{font-weight:600;font-size:14px;}
+.location-card .coords{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.location-card .accuracy-pill{
+  font-family:var(--mono);
+  font-size:10px;
+  padding:4px 8px;
+  border-radius:20px;
+  white-space:nowrap;
+}
+.acc-good{background:rgba(60,180,110,0.18);color:#2f9e63;}
+.acc-warn{background:rgba(255,170,60,0.2);color:#c97a12;}
+.acc-bad{background:rgba(255,90,90,0.2);color:#d24343;}
+
+/* ---------- compass dial ---------- */
+.compass-wrap{
+  position:relative;
+  width:300px;height:300px;
+  margin:6px auto 18px;
+  display:flex;align-items:center;justify-content:center;
+}
+.compass-dial{
+  width:100%;height:100%;
+  border-radius:50%;
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(10px);
+  position:relative;
+  transition:transform 0.15s ease-out;
+  box-shadow:0 12px 40px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+.tick{
+  position:absolute;
+  left:50%;top:6px;
+  width:2px;height:10px;
+  background:var(--muted);
+  transform-origin:1px 144px; /* 144px = dial radius (150) minus tick top offset (6) */
+  opacity:0.5;
+}
+.tick.major{height:14px;width:2px;opacity:0.8;}
+.cardinal{
+  position:absolute;
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:700;
+  color:var(--ink);
+}
+.cardinal.N{top:14px;left:50%;transform:translateX(-50%);}
+.cardinal.E{right:14px;top:50%;transform:translateY(-50%);}
+.cardinal.S{bottom:14px;left:50%;transform:translateX(-50%);}
+.cardinal.W{left:14px;top:50%;transform:translateY(-50%);}
+
+.compass-center{
+  position:absolute;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  z-index:5;
+}
+.needle{
+  width:3px;height:70px;
+  background:linear-gradient(180deg,var(--ink) 0%, transparent 100%);
+  border-radius:3px;
+}
+
+.sun-marker{
+  position:absolute;
+  left:50%;top:50%;
+  transform-origin:0 0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+}
+.sun-marker .dot-ring{
+  width:130px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  transform:translate(-65px,-148px);
+}
+.glyph{
+  width:22px;height:22px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.18);
+}
+.glyph.sunrise{background:radial-gradient(circle at 35% 30%, var(--sunrise-glow), var(--sunrise));}
+.glyph.sunset{background:radial-gradient(circle at 35% 30%, var(--sunset-glow), var(--sunset));border:2px solid var(--sunset);}
+.marker-label{
+  font-family:var(--mono);
+  font-size:10.5px;
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  padding:3px 7px;
+  border-radius:8px;
+  backdrop-filter:blur(6px);
+  white-space:nowrap;
+}
+
+.compass-caption{
+  text-align:center;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+
+/* ---------- today summary ---------- */
+.today-grid{
+  display:flex;
+  gap:12px;
+  margin:6px 20px 8px;
+}
+.today-card{
+  flex:1;
+  border-radius:var(--radius-sm);
+  padding:14px;
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+  position:relative;
+  overflow:hidden;
+}
+.today-card .label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--muted);
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:8px;
+}
+.today-card .time{
+  font-family:var(--mono);
+  font-weight:700;
+  font-size:22px;
+}
+.today-card .az{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+}
+.today-card.sunrise-card{border-left:3px solid var(--sunrise);}
+.today-card.sunset-card{border-left:3px solid var(--sunset);}
+
+.dot-label{width:8px;height:8px;border-radius:50%;background:var(--sunrise);display:inline-block;}
+.dot-label.filled{background:var(--sunset);}
+
+/* ---------- bottom nav ---------- */
+.bottomnav{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  max-width:480px;
+  margin:0 auto;
+  display:flex;
+  background:var(--panel);
+  border-top:1px solid var(--panel-border);
+  backdrop-filter:blur(14px);
+  padding:10px 8px calc(10px + env(safe-area-inset-bottom));
+  z-index:50;
+}
+.navbtn{
+  flex:1;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:none;border:none;
+  font-family:var(--display);
+  font-size:11px;
+  color:var(--muted);
+  cursor:pointer;
+  padding:4px;
+}
+.navbtn .ic{font-size:18px;}
+.navbtn.active{color:var(--ink);font-weight:600;}
+.navbtn.active .ic{color:var(--sunrise);}
+
+/* ---------- AR mode ---------- */
+.ar-view{
+  position:relative;
+  flex:1;
+  margin:4px 16px 16px;
+  border-radius:var(--radius);
+  overflow:hidden;
+  background:#0a0f1c;
+  min-height:420px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+.ar-view video{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  object-fit:cover;
+}
+.ar-fallback{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,#1a2540 0%, #0a0f1c 70%);
+}
+.ar-horizon{
+  position:absolute;
+  left:0;right:0;
+  height:2px;
+  background:rgba(255,255,255,0.25);
+  top:60%;
+}
+.ar-marker{
+  position:absolute;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  transform:translateX(-50%);
+  transition:left 0.2s linear;
+}
+.ar-marker .ar-time{
+  font-family:var(--mono);
+  font-size:12px;
+  color:#fff;
+  background:rgba(0,0,0,0.45);
+  padding:4px 9px;
+  border-radius:8px;
+  white-space:nowrap;
+}
+.ar-marker .ar-glyph{width:26px;height:26px;border-radius:50%;}
+.ar-note{
+  position:absolute;
+  top:14px;left:14px;right:14px;
+  font-size:11px;
+  color:rgba(255,255,255,0.7);
+  font-family:var(--mono);
+  background:rgba(0,0,0,0.35);
+  padding:8px 10px;
+  border-radius:10px;
+}
+.ar-controls{
+  margin:14px 20px 0;
+  display:flex;
+  gap:10px;
+}
+.btn{
+  flex:1;
+  font-family:var(--display);
+  font-weight:600;
+  font-size:13px;
+  padding:13px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--panel-border);
+  background:var(--panel);
+  color:var(--ink);
+  cursor:pointer;
+  backdrop-filter:blur(8px);
+}
+.btn.primary{
+  background:linear-gradient(135deg,var(--sunrise),var(--sunset));
+  color:#fff;
+  border:none;
+}
+
+/* ---------- forecast ---------- */
+.forecast-list{margin:6px 16px;display:flex;flex-direction:column;gap:10px;}
+.forecast-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.forecast-date{
+  width:64px;
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.3;
+}
+.forecast-date strong{display:block;font-size:15px;color:var(--ink);font-weight:700;}
+.forecast-times{flex:1;display:flex;gap:18px;}
+.forecast-times .fcol{display:flex;flex-direction:column;gap:2px;}
+.forecast-times .fcol .ftime{font-family:var(--mono);font-weight:700;font-size:14px;}
+.forecast-times .fcol .faz{font-family:var(--mono);font-size:10.5px;color:var(--muted);}
+.forecast-header{
+  display:flex;justify-content:space-between;
+  margin:10px 20px 4px;
+  font-size:11px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+
+/* ---------- settings ---------- */
+.settings-list{margin:6px 16px;display:flex;flex-direction:column;gap:10px;}
+.setting-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.setting-row .stext{display:flex;flex-direction:column;gap:2px;}
+.setting-row .stitle{font-size:14px;font-weight:600;}
+.setting-row .ssub{font-size:11px;color:var(--muted);}
+.switch{
+  width:46px;height:26px;border-radius:14px;
+  background:rgba(120,120,120,0.3);
+  position:relative;cursor:pointer;
+  transition:background 0.2s;
+  border:none;flex-shrink:0;
+}
+.switch.on{background:var(--sunrise);}
+.switch .knob{
+  position:absolute;top:3px;left:3px;
+  width:20px;height:20px;border-radius:50%;
+  background:#fff;
+  transition:transform 0.2s;
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+.switch.on .knob{transform:translateX(20px);}
+.segbtn-group{display:flex;gap:6px;background:rgba(120,120,120,0.12);padding:3px;border-radius:10px;}
+.segbtn{
+  font-family:var(--mono);
+  font-size:11px;
+  padding:6px 10px;
+  border-radius:7px;
+  border:none;
+  background:none;
+  color:var(--muted);
+  cursor:pointer;
+}
+.segbtn.active{background:var(--panel-border-light);color:var(--ink);font-weight:700;background:rgba(255,255,255,0.6);}
+[data-theme="dark"] .segbtn.active{background:rgba(255,255,255,0.15);}
+
+.section-title{
+  margin:18px 20px 4px;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--muted);
+}
+
+.calib-note{
+  margin:14px 20px 0;
+  padding:12px 14px;
+  border-radius:var(--radius-sm);
+  background:rgba(255,157,60,0.12);
+  border:1px solid rgba(255,157,60,0.3);
+  font-size:12px;
+  color:var(--ink);
+  display:flex;
+  gap:8px;
+}
+
+.screen-title{
+  font-size:22px;
+  font-weight:700;
+  margin:8px 20px 14px;
+}
+
+.note-small{
+  margin:8px 20px 0;
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.5;
+}
+.permission-box{
+  margin:16px 20px;
+  padding:16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  text-align:center;
+}
+.permission-box p{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important;}
+}
+</style>
+</head>
+<body data-theme="dark">
+<div id="app">
+
+  <!-- ============ HOME ============ -->
+  <section class="screen active" id="screen-home">
+    <div class="topbar">
+      <div class="brand"><span class="glyphs">○●</span> Sun Finder</div>
+      <button class="iconbtn" id="refreshBtn" title="Refresh location">⟳</button>
+    </div>
+
+    <div class="location-card">
+      <div class="loc-text">
+        <span class="city" id="cityLabel">Locating…</span>
+        <span class="coords" id="coordsLabel">--.----°, --.----°</span>
+      </div>
+      <span class="accuracy-pill acc-warn" id="accuracyPill">GPS: --</span>
+    </div>
+
+    <div class="compass-wrap">
+      <div class="compass-dial" id="compassDial">
+        <!-- ticks injected by JS -->
+        <div class="cardinal N">N</div>
+        <div class="cardinal E">E</div>
+        <div class="cardinal S">S</div>
+        <div class="cardinal W">W</div>
+
+        <div class="sun-marker" id="sunriseMarker">
+          <div class="dot-ring">
+            <span class="glyph sunrise">○</span>
+            <span class="marker-label" id="sunriseAzLabel">--°</span>
+          </div>
+        </div>
+        <div class="sun-marker" id="sunsetMarker">
+          <div class="dot-ring">
+            <span class="glyph sunset">●</span>
+            <span class="marker-label" id="sunsetAzLabel">--°</span>
+          </div>
+        </div>
+
+        <div class="compass-center">
+          <div class="needle"></div>
+        </div>
+      </div>
+    </div>
+    <div class="compass-caption" id="compassCaption">Compass: waiting for sensor permission</div>
+
+    <div class="today-grid">
+      <div class="today-card sunrise-card">
+        <div class="label"><span class="dot-label"></span> Sunrise</div>
+        <div class="time" id="sunriseTime">--:--</div>
+        <div class="az" id="sunriseAz">Az --°</div>
+      </div>
+      <div class="today-card sunset-card">
+        <div class="label"><span class="dot-label filled"></span> Sunset</div>
+        <div class="time" id="sunsetTime">--:--</div>
+        <div class="az" id="sunsetAz">Az --°</div>
+      </div>
+    </div>
+    <div class="note-small" id="dataNote">Calculations run locally using the SunCalc astronomical library once your location is known. No network request is needed for this math.</div>
+  </section>
+
+  <!-- ============ AR MODE ============ -->
+  <section class="screen" id="screen-ar">
+    <div class="topbar">
+      <div class="brand">AR Mode</div>
+      <span style="font-size:11px;color:var(--muted);font-family:var(--mono);">mock-up</span>
+    </div>
+    <div class="ar-view" id="arView">
+      <div class="ar-fallback"></div>
+      <div class="ar-horizon"></div>
+      <div class="ar-note">Simplified mock-up: markers are positioned using compass heading math, not real camera depth/AR tracking.</div>
+      <div class="ar-marker" id="arSunrise">
+        <span class="ar-time" id="arSunriseTime">Sunrise --:--</span>
+        <span class="ar-glyph glyph sunrise"></span>
+      </div>
+      <div class="ar-marker" id="arSunset">
+        <span class="ar-time" id="arSunsetTime">Sunset --:--</span>
+        <span class="ar-glyph glyph sunset"></span>
+      </div>
+    </div>
+    <div class="ar-controls">
+      <button class="btn" id="arCameraBtn">Enable camera</button>
+      <button class="btn primary" id="arCalibBtn">Calibrate compass</button>
+    </div>
+    <div class="note-small">Markers shift left/right as you turn, based on the difference between your current compass heading and each event's azimuth.</div>
+  </section>
+
+  <!-- ============ FORECAST ============ -->
+  <section class="screen" id="screen-forecast">
+    <div class="screen-title">7‑Day Forecast</div>
+    <div class="forecast-header">
+      <span>Date</span><span>Sunrise · Sunset</span>
+    </div>
+    <div class="forecast-list" id="forecastList">
+      <!-- rows injected by JS -->
+    </div>
+    <div class="note-small" id="forecastNote">Cached locally for offline viewing — computed once from your coordinates, no server round-trip required.</div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="screen" id="screen-settings">
+    <div class="screen-title">Settings</div>
+
+    <div class="section-title">Display</div>
+    <div class="settings-list">
+      <div class="setting-row">
+        <div class="stext"><span class="stitle">Theme</span><span class="ssub">Light / dark mode</span></div>
+        <div class="segbtn-group">
+          <button class="segbtn" id="themeLightBtn">Light</button>
+          <button class="segbtn active" id="themeDarkBtn">Dark</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="stext"><span class="stitle">Time format</span><span class="ssub">12‑hour or 24‑hour clock</span></div>
+        <div class="segbtn-group">
+          <button class="segbtn active" id="time12Btn">12h</button>
+          <button class="segbtn" id="time24Btn">24h</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Sensors</div>
+    <div class="settings-list">
+      <div class="setting-row">
+        <div class="stext"><span class="stitle">AR Mode</span><span class="ssub">Show camera overlay view</span></div>
+        <button class="switch on" id="arToggle"><span class="knob"></span></button>
+      </div>
+      <div class="setting-row">
+        <div class="stext"><span class="stitle">Compass calibration</span><span class="ssub" id="calibStatus">Not yet calibrated</span></div>
+        <button class="btn" id="calibBtn" style="flex:none;padding:8px 14px;font-size:12px;">Calibrate</button>
+      </div>
+    </div>
+
+    <div class="calib-note">
+      ⚠ <span>If your sunrise/sunset readings seem off, calibrate by moving your phone in a figure‑8 motion. This is a real device API call — accuracy still depends on your phone's hardware and nearby magnetic interference.</span>
+    </div>
+
+    <div class="section-title">About this prototype</div>
+    <div class="note-small" style="margin-bottom:8px;">
+      This is a browser-based mock-up, not the final iOS/Android app. Sunrise/sunset/azimuth values are real (SunCalc library). Compass heading uses your device's real orientation sensor where your browser/OS permits it. AR camera view is a simplified overlay, not true AR tracking.
+    </div>
+  </section>
+
+  <!-- ============ BOTTOM NAV ============ -->
+  <nav class="bottomnav">
+    <button class="navbtn active" data-screen="home"><span class="ic">⌖</span>Home</button>
+    <button class="navbtn" data-screen="ar"><span class="ic">▣</span>AR Mode</button>
+    <button class="navbtn" data-screen="forecast"><span class="ic">☰</span>Forecast</button>
+    <button class="navbtn" data-screen="settings"><span class="ic">⚙</span>Settings</button>
+  </nav>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
