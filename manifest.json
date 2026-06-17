@@ -1,7 +1,7 @@
 {
   "name": "Sun Finder",
   "short_name": "SunFinder",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#001F3F",
   "theme_color": "#FFAA00",
