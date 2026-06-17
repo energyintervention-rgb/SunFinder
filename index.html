@@ -265,6 +265,69 @@ body{
   .align-banner{ animation:none; }
 }
 
+/* ---------- date/time preview filter ---------- */
+.preview-card{
+  margin:4px 20px 12px;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.preview-toggle-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.preview-title{
+  font-size:13px;
+  font-weight:600;
+}
+.preview-inputs{
+  display:flex;
+  gap:8px;
+  margin-top:12px;
+}
+.preview-input{
+  flex:1;
+  font-family:var(--mono);
+  font-size:12px;
+  padding:9px 10px;
+  border-radius:8px;
+  border:1px solid var(--panel-border);
+  background:rgba(255,255,255,0.5);
+  color:var(--ink);
+}
+[data-theme="dark"] .preview-input{
+  background:rgba(255,255,255,0.06);
+  color-scheme:dark;
+}
+.preview-result{
+  margin-top:10px;
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--muted);
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.preview-result .preview-warn{
+  color:#c97a12;
+}
+
+/* ---------- ghost/preview sun marker — visually distinct from
+   the live sunrise/sunset markers, since this represents a
+   simulated date/time, not the real current state ---------- */
+.glyph.preview-glyph{
+  background:transparent;
+  border:2px dashed var(--muted);
+  color:var(--ink);
+  font-size:12px;
+}
+.marker-label.preview-label{
+  border-style:dashed;
+}
+
 /* ---------- today summary ---------- */
 .today-grid{
   display:flex;
@@ -558,6 +621,18 @@ body{
       <span class="accuracy-pill acc-warn" id="accuracyPill">GPS: --</span>
     </div>
 
+    <div class="preview-card">
+      <div class="preview-toggle-row">
+        <span class="preview-title">Preview sun position</span>
+        <button class="switch" id="previewToggle"><span class="knob"></span></button>
+      </div>
+      <div class="preview-inputs" id="previewInputs" style="display:none;">
+        <input type="date" id="previewDate" class="preview-input">
+        <input type="time" id="previewTime" class="preview-input">
+      </div>
+      <div class="preview-result" id="previewResult" style="display:none;"></div>
+    </div>
+
     <div class="compass-wrap">
       <div class="compass-dial" id="compassDial">
         <!-- ticks injected by JS -->
@@ -576,6 +651,12 @@ body{
           <div class="dot-ring">
             <span class="glyph sunset">●</span>
             <span class="marker-label" id="sunsetAzLabel">--°</span>
+          </div>
+        </div>
+        <div class="sun-marker" id="previewMarker" style="display:none;">
+          <div class="dot-ring">
+            <span class="glyph preview-glyph">◌</span>
+            <span class="marker-label preview-label" id="previewAzLabel">--°</span>
           </div>
         </div>
 
@@ -608,6 +689,17 @@ body{
       <div class="brand">AR Mode</div>
       <span style="font-size:11px;color:var(--muted);font-family:var(--mono);">mock-up</span>
     </div>
+    <div class="preview-card">
+      <div class="preview-toggle-row">
+        <span class="preview-title">Preview sun position</span>
+        <button class="switch" id="previewToggleAr"><span class="knob"></span></button>
+      </div>
+      <div class="preview-inputs" id="previewInputsAr" style="display:none;">
+        <input type="date" id="previewDateAr" class="preview-input">
+        <input type="time" id="previewTimeAr" class="preview-input">
+      </div>
+      <div class="preview-result" id="previewResultAr" style="display:none;"></div>
+    </div>
     <div class="ar-view" id="arView">
       <div class="ar-fallback"></div>
       <div class="ar-horizon"></div>
@@ -619,6 +711,10 @@ body{
       <div class="ar-marker" id="arSunset">
         <span class="ar-time" id="arSunsetTime">Sunset --:--</span>
         <span class="ar-glyph glyph sunset"></span>
+      </div>
+      <div class="ar-marker" id="arPreview" style="display:none;">
+        <span class="ar-time" id="arPreviewTime">Preview --:--</span>
+        <span class="ar-glyph glyph preview-glyph">◌</span>
       </div>
       <div class="align-banner align-banner-ar" id="arAlignBanner" style="display:none;"></div>
     </div>
