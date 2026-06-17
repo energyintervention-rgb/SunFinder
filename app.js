@@ -18,8 +18,7 @@ const state = {
   arEnabled: true,
   calibrated: false,
   forecastDays: [],
-  previewEnabled: false,    // user-toggled, independent for Home/AR via shared state
-  previewResult: null,      // { azimuth, altitudeDeg, dateTime } or null if not yet computed
+  previewResult: null,      // { azimuth, altitudeDeg, dateTime } or null until computed
 };
 
 // ---------- helpers ----------
@@ -168,6 +167,16 @@ function computeSunData(){
   positionMarkers();
   renderAR();
   buildForecast();
+
+  // Now that location is known, recompute the sky preview (it may have
+  // already rendered an "unavailable" message if the picker fired before
+  // GPS resolved).
+  if (document.getElementById('previewDate') && document.getElementById('previewDate').value) {
+    computePreview('previewDate', 'previewTime', null);
+  }
+  if (document.getElementById('previewDateAr') && document.getElementById('previewDateAr').value) {
+    computePreview('previewDateAr', 'previewTimeAr', 'previewResultAr');
+  }
 }
 
 function renderToday(){
@@ -447,19 +456,29 @@ function renderAR(){
 }
 
 // =========================================================
-// Date/time PREVIEW feature
+// Date/time PREVIEW feature — "sky view"
 //
 // This computes the sun's REAL azimuth and altitude for any
 // date/time the user picks, using the same SunCalc.getPosition()
 // call already used elsewhere — not a guessed or hardcoded value.
 //
-// What this does NOT do: it does not turn the compass dial into
-// a true 3D sky view. The Home dial is flat and only shows compass
-// direction (azimuth), so "altitude" (height above horizon) is
-// shown as a text readout there, not a visual position — faking
-// a 3D placement on a 2D dial would be misleading. On the AR
-// screen, altitude DOES get a real visual meaning: higher altitude
-// moves the marker higher on screen, same idea as horizon = 0°.
+// The date/time picker is always active (no on/off toggle) and
+// drives:
+//   1. A glowing sun rendered in a dedicated sky panel on Home,
+//      positioned left-right by azimuth (relative to current
+//      compass heading) and up-down by altitude.
+//   2. The sky panel's background gradient, which shifts based on
+//      real solar altitude using standard astronomical twilight
+//      thresholds (these are recognized terms, not invented bands):
+//        altitude >= 0°        : day
+//        0° to -6°             : civil twilight
+//        -6° to -18°           : nautical/astronomical twilight
+//        below -18°            : night
+//   3. A dashed "ghost" marker on the compass dial (azimuth only —
+//      the dial is flat and can't show altitude without faking a
+//      3D effect, so altitude stays as a text readout there).
+//   4. The AR screen's marker + background, same altitude/azimuth
+//      mapping as the sky panel.
 // =========================================================
 
 function getPreviewDateTimeLocal(dateInputId, timeInputId){
@@ -471,47 +490,130 @@ function getPreviewDateTimeLocal(dateInputId, timeInputId){
   return dt;
 }
 
+// Returns a CSS gradient string for a given solar altitude (degrees),
+// using real astronomical twilight thresholds rather than arbitrary
+// color picking. Interpolates smoothly between named bands.
+function skyGradientForAltitude(altitudeDeg){
+  const bands = [
+    { alt: 15,  grad: 'linear-gradient(180deg,#2a6fd1 0%, #8fcbff 60%, #ffe9c4 100%)' }, // full day
+    { alt: 0,   grad: 'linear-gradient(180deg,#3a5a8c 0%, #e8966b 65%, #ffd9a0 100%)' }, // sunrise/sunset band
+    { alt: -6,  grad: 'linear-gradient(180deg,#1c2a4a 0%, #7a4f6b 65%, #c97a5a 100%)' }, // civil twilight
+    { alt: -18, grad: 'linear-gradient(180deg,#070b18 0%, #1c2540 70%, #2e2a4a 100%)' }, // nautical/astro twilight
+    { alt: -90, grad: 'linear-gradient(180deg,#04050c 0%, #0a0f1c 100%)' },              // night
+  ];
+  if (altitudeDeg >= bands[0].alt) return bands[0].grad;
+  if (altitudeDeg <= bands[bands.length-1].alt) return bands[bands.length-1].grad;
+  // Find which band range we're inside. bands[i] is the UPPER bound of a
+  // range and bands[i+1] is the LOWER bound — the gradient that applies
+  // is bands[i+1]'s (the band whose range we're currently inside),
+  // not bands[i]'s (that would label band by its ceiling, not its content).
+  for (let i=0; i<bands.length-1; i++){
+    if (altitudeDeg <= bands[i].alt && altitudeDeg > bands[i+1].alt){
+      return bands[i+1].grad;
+    }
+  }
+  return bands[bands.length-1].grad;
+}
+
 function computePreview(dateInputId, timeInputId, resultElId){
   const resultEl = document.getElementById(resultElId);
   if (state.lat === null || state.lon === null || typeof SunCalc === 'undefined') {
-    resultEl.style.display = 'block';
-    resultEl.innerHTML = '<span class="preview-warn">Location not available yet — cannot compute a preview.</span>';
+    if (resultEl) {
+      resultEl.innerHTML = '<span class="preview-warn">Location not available yet — cannot compute sky position.</span>';
+    }
     state.previewResult = null;
+    renderSkyView();
+    positionPreviewMarker();
+    renderPreviewAR();
     return;
   }
 
   const dt = getPreviewDateTimeLocal(dateInputId, timeInputId);
   if (!dt) {
-    resultEl.style.display = 'none';
     state.previewResult = null;
+    renderSkyView();
+    positionPreviewMarker();
+    renderPreviewAR();
     return;
   }
 
-  // SunCalc.getPosition wants a UTC-comparable Date object — a JS Date
-  // constructed from local "YYYY-MM-DDTHH:MM:00" is already correctly
-  // anchored to the browser's local timezone, so this is real, not a guess.
+  // SunCalc.getPosition wants a Date object — a JS Date constructed from
+  // local "YYYY-MM-DDTHH:MM:00" is already correctly anchored to the
+  // browser's local timezone, so this is real, not a guess.
   const pos = SunCalc.getPosition(dt, state.lat, state.lon);
   const azimuth = azToCompassBearing(pos.azimuth);
   const altitudeDeg = pos.altitude * 180 / Math.PI;
 
   state.previewResult = { azimuth, altitudeDeg, dateTime: dt };
 
-  resultEl.style.display = 'block';
-  if (altitudeDeg < 0) {
-    resultEl.innerHTML =
-      `Az ${fmtAz(azimuth)} · Altitude ${altitudeDeg.toFixed(1)}° ` +
-      `<span class="preview-warn">(below horizon — sun not visible at this time)</span>`;
-  } else {
-    resultEl.innerHTML = `Az ${fmtAz(azimuth)} · Altitude ${altitudeDeg.toFixed(1)}° above horizon`;
+  if (resultEl) {
+    if (altitudeDeg < 0) {
+      resultEl.innerHTML =
+        `Az ${fmtAz(azimuth)} · Altitude ${altitudeDeg.toFixed(1)}° ` +
+        `<span class="preview-warn">(below horizon — not visible at this time)</span>`;
+    } else {
+      resultEl.innerHTML = `Az ${fmtAz(azimuth)} · Altitude ${altitudeDeg.toFixed(1)}° above horizon`;
+    }
   }
 
+  renderSkyView();
   positionPreviewMarker();
   renderPreviewAR();
 }
 
+// Renders the Home screen's dedicated sky panel: gradient backdrop
+// (by altitude) + a glowing sun positioned by azimuth (relative to
+// current heading, left-right) and altitude (up-down).
+function renderSkyView(){
+  const view = document.getElementById('skyView');
+  const sun = document.getElementById('skySun');
+  const glow = document.getElementById('skySunGlow');
+  const readout = document.getElementById('skyReadout');
+  if (!view) return;
+
+  if (!state.previewResult) {
+    readout.textContent = 'Pick a date and time to preview the sky.';
+    sun.style.display = 'none';
+    glow.style.display = 'none';
+    return;
+  }
+
+  const { azimuth, altitudeDeg, dateTime } = state.previewResult;
+  view.style.background = skyGradientForAltitude(altitudeDeg);
+
+  const heading = state.heading ?? 0;
+  const fov = 100; // wider than AR's 90° since this is a standalone panel, not a camera FOV
+  const delta = ((azimuth - heading + 540) % 360) - 180;
+  const leftPct = Math.max(-5, Math.min(105, 50 + (delta / fov) * 50));
+
+  // 0° altitude sits on the horizon line (70% down, matching .sky-horizon-line),
+  // 90° (straight overhead) moves to near the top. Simplified linear mapping,
+  // not a true perspective projection.
+  const horizonPct = 70;
+  const topPct = Math.max(6, horizonPct - (Math.max(0, altitudeDeg) / 90) * (horizonPct - 8));
+  // Below the horizon, let the sun sink visually rather than vanish abruptly,
+  // capped so it doesn't run off the bottom of the panel.
+  const belowPct = Math.min(96, horizonPct + (Math.max(0, -altitudeDeg) / 30) * (96 - horizonPct));
+  const finalTopPct = altitudeDeg >= 0 ? topPct : belowPct;
+
+  const visible = leftPct >= -5 && leftPct <= 105;
+  sun.style.display = visible ? 'block' : 'none';
+  glow.style.display = (visible && altitudeDeg >= -2) ? 'block' : 'none';
+  sun.style.left = leftPct + '%';
+  sun.style.top = finalTopPct + '%';
+  glow.style.left = leftPct + '%';
+  glow.style.top = finalTopPct + '%';
+  sun.style.opacity = altitudeDeg < -2 ? '0.35' : '1';
+
+  readout.textContent =
+    `${fmtTime(dateTime)} · Az ${fmtAz(azimuth)} · Alt ${altitudeDeg.toFixed(1)}°` +
+    (altitudeDeg < 0 ? ' (below horizon)' : '');
+}
+
 function positionPreviewMarker(){
   const marker = document.getElementById('previewMarker');
-  if (!state.previewEnabled || !state.previewResult) {
+  if (!marker) return;
+  if (!state.previewResult) {
     marker.style.display = 'none';
     return;
   }
@@ -525,11 +627,17 @@ function positionPreviewMarker(){
 
 function renderPreviewAR(){
   const marker = document.getElementById('arPreview');
+  const skyBg = document.getElementById('arSkyBg');
   if (!marker) return;
-  if (!state.previewEnabled || !state.previewResult) {
+  if (!state.previewResult) {
     marker.style.display = 'none';
     return;
   }
+
+  if (skyBg) {
+    skyBg.style.background = skyGradientForAltitude(state.previewResult.altitudeDeg);
+  }
+
   const heading = state.heading ?? 0;
   const fov = 90;
   let delta = ((state.previewResult.azimuth - heading + 540) % 360) - 180;
@@ -537,8 +645,8 @@ function renderPreviewAR(){
 
   // Map altitude to vertical position: 0° altitude sits on the horizon
   // line (60% down, matching .ar-horizon's `top:60%`), 90° (straight up)
-  // moves toward the top of the frame. This is a simplified linear
-  // mapping for a flat 2D mock view, not a real perspective projection.
+  // moves toward the top of the frame. Simplified linear mapping for a
+  // flat 2D mock view, not a real perspective projection.
   const altitudeDeg = state.previewResult.altitudeDeg;
   const horizonTopPct = 60;
   const topPct = Math.max(4, horizonTopPct - (Math.max(0, altitudeDeg) / 90) * (horizonTopPct - 8));
@@ -552,37 +660,28 @@ function renderPreviewAR(){
     'Preview ' + fmtTime(state.previewResult.dateTime);
 }
 
-function wirePreviewControls(toggleId, inputsId, dateId, timeId, resultId){
-  const toggle = document.getElementById(toggleId);
-  const inputs = document.getElementById(inputsId);
+function wirePreviewControls(dateId, timeId, resultId, nowBtnId){
   const dateInput = document.getElementById(dateId);
   const timeInput = document.getElementById(timeId);
+  const nowBtn = document.getElementById(nowBtnId);
 
-  // Default the inputs to "now" so there's a sensible starting point.
-  const now = new Date();
-  dateInput.value = now.toISOString().slice(0,10);
-  timeInput.value = now.toTimeString().slice(0,5);
+  function setToNow(){
+    const now = new Date();
+    dateInput.value = now.toISOString().slice(0,10);
+    timeInput.value = now.toTimeString().slice(0,5);
+    computePreview(dateId, timeId, resultId);
+  }
 
-  toggle.addEventListener('click', ()=>{
-    state.previewEnabled = !state.previewEnabled;
-    toggle.classList.toggle('on', state.previewEnabled);
-    inputs.style.display = state.previewEnabled ? 'flex' : 'none';
-    document.getElementById(resultId).style.display = state.previewEnabled ? 'block' : 'none';
-    if (state.previewEnabled) {
-      computePreview(dateId, timeId, resultId);
-    } else {
-      state.previewResult = null;
-      positionPreviewMarker();
-      renderPreviewAR();
-    }
-  });
+  setToNow(); // sensible starting point
 
   dateInput.addEventListener('change', ()=> computePreview(dateId, timeId, resultId));
   timeInput.addEventListener('change', ()=> computePreview(dateId, timeId, resultId));
+  if (nowBtn) nowBtn.addEventListener('click', setToNow);
 }
 
-wirePreviewControls('previewToggle', 'previewInputs', 'previewDate', 'previewTime', 'previewResult');
-wirePreviewControls('previewToggleAr', 'previewInputsAr', 'previewDateAr', 'previewTimeAr', 'previewResultAr');
+wirePreviewControls('previewDate', 'previewTime', null, 'previewNowBtn');
+wirePreviewControls('previewDateAr', 'previewTimeAr', 'previewResultAr', 'previewNowBtnAr');
+
 
 
 
