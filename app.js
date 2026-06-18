@@ -436,28 +436,49 @@ document.getElementById('arCalibBtn').addEventListener('click', async ()=>{
   await enableCompass();
 });
 
-// ---------- AR mode marker positioning ----------
-async function enableARCamera(){
+// ---------- AR mode camera toggle ----------
+let arCameraStream = null; // null = camera off; MediaStream object = camera on
+
+async function toggleARCamera(){
+  const btn = document.getElementById('arCameraBtn');
   const view = document.getElementById('arView');
+
+  // --- TURN OFF ---
+  if (arCameraStream !== null) {
+    // Stop all tracks (this releases the camera hardware and removes
+    // the recording indicator from the status bar on iOS/Android).
+    arCameraStream.getTracks().forEach(track => track.stop());
+    arCameraStream = null;
+
+    // Remove the video element from the DOM
+    const video = view.querySelector('video');
+    if (video) video.remove();
+
+    btn.textContent = 'Enable camera';
+    return;
+  }
+
+  // --- TURN ON ---
   if (!('mediaDevices' in navigator) || !navigator.mediaDevices.getUserMedia) {
-    document.getElementById('arCameraBtn').textContent = 'Camera not supported';
+    btn.textContent = 'Camera not supported';
     return;
   }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    arCameraStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
     let video = view.querySelector('video');
     if (!video){
       video = document.createElement('video');
       video.autoplay = true; video.playsInline = true; video.muted = true;
       view.insertBefore(video, view.firstChild);
     }
-    video.srcObject = stream;
-    document.getElementById('arCameraBtn').textContent = 'Camera on';
+    video.srcObject = arCameraStream;
+    btn.textContent = 'Camera off';
   } catch(e) {
-    document.getElementById('arCameraBtn').textContent = 'Camera permission denied';
+    arCameraStream = null;
+    btn.textContent = 'Camera permission denied';
   }
 }
-document.getElementById('arCameraBtn').addEventListener('click', enableARCamera);
+document.getElementById('arCameraBtn').addEventListener('click', toggleARCamera);
 
 function renderAR(){
   if (!state.today) return;
