@@ -279,9 +279,7 @@ body{
   height:170px;
   border-radius:var(--radius-sm);
   overflow:hidden;
-  /* default = daytime gradient; JS overwrites this based on real altitude */
   background:linear-gradient(180deg,#3a7bd5 0%, #aee4ff 70%, #ffe9c4 100%);
-  transition:background 1s ease;
   margin-bottom:12px;
 }
 .sky-horizon-line{
@@ -451,7 +449,6 @@ body{
 .sky-bg{
   position:absolute;inset:0;
   background:linear-gradient(180deg,#1a2540 0%, #0a0f1c 70%);
-  transition:background 0.6s ease;
   z-index:0;
 }
 .ar-horizon{
