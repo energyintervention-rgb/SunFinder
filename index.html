@@ -2587,18 +2587,20 @@ function renderSolarAdvisor(){
   label.textContent = targetDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   let d;
+  let isDemo = false;
   if (state.lat !== null && state.lon !== null && typeof SunCalc !== 'undefined') {
     const isKLRange = Math.abs(state.lat - 3.139) < 2 && Math.abs(state.lon - 101.687) < 2;
     if (isKLRange) {
       d = SOLAR_MONTHLY_KL[month];
     } else {
-      // Live optimizer — now correctly handles high latitudes and tilt=0
       const r = optimizePanelForMonth(targetDate.getFullYear(), month, state.lat, state.lon);
       const facing = r.azimuth === null ? 'Any' : compassDirectionName(r.azimuth);
       d = { tilt: r.tilt, az: r.azimuth, facing, eff: null, theta: null, elev: null };
     }
   } else {
+    // No GPS yet — show KL data but label it clearly as a demo
     d = SOLAR_MONTHLY_KL[month];
+    isDemo = true;
   }
 
   document.getElementById('solarTiltValue').textContent = d.tilt + '°';
@@ -2635,7 +2637,15 @@ function renderSolarAdvisor(){
   }
 
   const note = document.getElementById('solarComputeNote');
-  if (note) note.textContent = '⚠ Clear-sky geometric estimate. Does not account for clouds or haze.';
+  if (note) {
+    if (isDemo) {
+      note.textContent = '⚠ GPS not available — showing demo data for Kuala Lumpur. Allow location access for your local recommendations.';
+      note.style.color = 'var(--sunrise)';
+    } else {
+      note.textContent = '⚠ Clear-sky geometric estimate. Does not account for clouds or haze.';
+      note.style.color = '';
+    }
+  }
 }
 
 
