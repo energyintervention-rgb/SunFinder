@@ -2570,9 +2570,18 @@ function totalClearSkyExposureForDay(year, month, day, utcOffsetHours, lat, lon,
 // at most 2-3 degrees, while running roughly 20x faster.
 function optimizePanelForMonth(year, month, lat, lon){
   const utcOffsetHours = estimateUtcOffsetHours(lon);
+  // Extend tilt search cap based on latitude:
+  // Low latitudes (<20°): 40° is enough
+  // Mid latitudes (20-45°): 60°
+  // High latitudes (>45°): 75° (e.g. London Dec optimal ~72°)
+  const absLat = Math.abs(lat);
+  const maxTilt = absLat > 45 ? 75 : absLat > 20 ? 60 : 40;
+
   let best = { tilt: 0, azimuth: 0, exposure: -Infinity };
-  for (let betaDeg = 0; betaDeg <= 40; betaDeg += 5) {
+  for (let betaDeg = 0; betaDeg <= maxTilt; betaDeg += 5) {
     for (let azDeg = 0; azDeg < 360; azDeg += 15) {
+      // When tilt=0 (flat panel), all azimuths are identical — skip redundant checks
+      if (betaDeg === 0 && azDeg > 0) continue;
       const panelAzimuthRad = (azDeg - 180) * (Math.PI / 180);
       const betaRad = betaDeg * (Math.PI / 180);
       const exposure = totalClearSkyExposureForDay(year, month, 15, utcOffsetHours, lat, lon, betaRad, panelAzimuthRad, 30);
@@ -2581,6 +2590,14 @@ function optimizePanelForMonth(year, month, lat, lon){
       }
     }
   }
+
+  // When optimal tilt is 0°, facing direction is geometrically meaningless
+  // (a flat panel captures equal energy regardless of which way it points).
+  // Determine the correct facing from the hemisphere instead of reporting az=0.
+  if (best.tilt === 0) {
+    best.azimuth = null; // signal to the renderer to show "Any direction"
+  }
+
   return best;
 }
 
@@ -2589,23 +2606,21 @@ function compassDirectionName(deg){
   return dirs[Math.round(deg / 22.5) % 16];
 }
 
-// Pre-verified monthly data for KL (lat 3.139, lon 101.687).
-// Computed and cross-checked via independent Node test — see development notes.
-// tilt=deg from horizontal, az=compass bearing, eff=% vs flat panel,
-// theta=noon incidence angle, elev=noon solar elevation
+// Pre-verified monthly data for KL (lat 3.139, lon 101.687) — used as a fast
+// path when the detected location is within the KL region.
 const SOLAR_MONTHLY_KL = [
-  {tilt:30,az:180,facing:'S',eff:121,theta:5.7,elev:65.7},  // Jan
-  {tilt:20,az:180,facing:'S',eff:108,theta:4.0,elev:74.0},  // Feb
-  {tilt:5, az:180,facing:'S',eff:101,theta:0.5,elev:84.6},  // Mar
-  {tilt:10,az:0,  facing:'N',eff:102,theta:3.5,elev:83.5},  // Apr
-  {tilt:20,az:0,  facing:'N',eff:110,theta:4.4,elev:74.4},  // May
-  {tilt:25,az:0,  facing:'N',eff:116,theta:4.8,elev:69.8},  // Jun
-  {tilt:25,az:0,  facing:'N',eff:114,theta:6.5,elev:71.5},  // Jul
-  {tilt:15,az:0,  facing:'N',eff:105,theta:4.0,elev:79.0},  // Aug
-  {tilt:0, az:0,  facing:'N',eff:100,theta:0.1,elev:89.9},  // Sep
-  {tilt:15,az:180,facing:'S',eff:104,theta:3.5,elev:78.5},  // Oct
-  {tilt:25,az:180,facing:'S',eff:115,theta:3.5,elev:68.5},  // Nov
-  {tilt:30,az:180,facing:'S',eff:124,theta:3.6,elev:63.6},  // Dec
+  {tilt:30,az:180,facing:'S',eff:121,theta:5.7,elev:65.7},
+  {tilt:20,az:180,facing:'S',eff:108,theta:4.0,elev:74.0},
+  {tilt:5, az:180,facing:'S',eff:101,theta:0.5,elev:84.6},
+  {tilt:10,az:0,  facing:'N',eff:102,theta:3.5,elev:83.5},
+  {tilt:20,az:0,  facing:'N',eff:110,theta:4.4,elev:74.4},
+  {tilt:25,az:0,  facing:'N',eff:116,theta:4.8,elev:69.8},
+  {tilt:25,az:0,  facing:'N',eff:114,theta:6.5,elev:71.5},
+  {tilt:15,az:0,  facing:'N',eff:105,theta:4.0,elev:79.0},
+  {tilt:0, az:0,  facing:'N',eff:100,theta:0.1,elev:89.9},
+  {tilt:15,az:180,facing:'S',eff:104,theta:3.5,elev:78.5},
+  {tilt:25,az:180,facing:'S',eff:115,theta:3.5,elev:68.5},
+  {tilt:30,az:180,facing:'S',eff:124,theta:3.6,elev:63.6},
 ];
 
 const solarState = { monthOffset: 0 };
@@ -2729,48 +2744,58 @@ function renderSolarAdvisor(){
 
   label.textContent = targetDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-  // Use pre-verified data if location is KL-ish, otherwise run optimizer
   let d;
   if (state.lat !== null && state.lon !== null && typeof SunCalc !== 'undefined') {
-    // Check if we're close enough to KL to use pre-verified data
-    // (within ~200km), otherwise run the live optimizer
     const isKLRange = Math.abs(state.lat - 3.139) < 2 && Math.abs(state.lon - 101.687) < 2;
     if (isKLRange) {
       d = SOLAR_MONTHLY_KL[month];
     } else {
-      // Run live optimizer for other locations
+      // Live optimizer — now correctly handles high latitudes and tilt=0
       const r = optimizePanelForMonth(targetDate.getFullYear(), month, state.lat, state.lon);
-      d = { tilt: r.tilt, az: r.azimuth, facing: compassDirectionName(r.azimuth), eff: null, theta: null, elev: null };
+      const facing = r.azimuth === null ? 'Any' : compassDirectionName(r.azimuth);
+      d = { tilt: r.tilt, az: r.azimuth, facing, eff: null, theta: null, elev: null };
     }
   } else {
-    // No location yet — use KL defaults as a demo
     d = SOLAR_MONTHLY_KL[month];
   }
 
   document.getElementById('solarTiltValue').textContent = d.tilt + '°';
-  document.getElementById('solarAzValue').textContent = d.az + '°';
-  document.getElementById('solarAzCompass').textContent = d.facing;
 
-  // Update diagram
-  if (d.elev !== null) {
+  // Handle tilt=0 "any direction" case
+  const azEl = document.getElementById('solarAzValue');
+  const azSub = document.getElementById('solarAzCompass');
+  if (d.az === null || d.az === undefined) {
+    if (azEl) azEl.textContent = '--';
+    if (azSub) azSub.textContent = 'Any direction';
+  } else {
+    if (azEl) azEl.textContent = d.az + '°';
+    if (azSub) azSub.textContent = d.facing;
+  }
+
+  // Update diagram (only when we have full data)
+  if (d.elev !== null && d.elev !== undefined) {
     updateSolarDiagram(d);
   }
 
   // Efficiency bar
-  if (d.eff !== null) {
-    const pctEl = document.getElementById('solarEffPct');
-    const fillEl = document.getElementById('solarEffFill');
-    const formulaEl = document.getElementById('solarEffFormula');
+  const pctEl = document.getElementById('solarEffPct');
+  const fillEl = document.getElementById('solarEffFill');
+  const formulaEl = document.getElementById('solarEffFormula');
+  if (d.eff !== null && d.eff !== undefined) {
     if (pctEl) pctEl.textContent = d.eff + '%';
     if (fillEl) fillEl.style.width = Math.min(100, (d.eff / 130) * 100) + '%';
-    if (formulaEl && d.theta !== null) {
-      formulaEl.textContent = `noon θ=${d.theta}° · cos(θ)=${Math.cos(d.theta*Math.PI/180).toFixed(3)}`;
-    }
+    if (formulaEl && d.theta !== null)
+      formulaEl.textContent = `noon θ=${d.theta}° · cos(θ)=${Math.cos(d.theta * Math.PI / 180).toFixed(3)}`;
+  } else {
+    if (pctEl) pctEl.textContent = '--';
+    if (fillEl) fillEl.style.width = '0%';
+    if (formulaEl) formulaEl.textContent = 'detailed data available for Malaysia only';
   }
 
   const note = document.getElementById('solarComputeNote');
-  if (note) note.textContent = '⚠ Clear-sky geometric estimate. Does not account for clouds or haze. Malaysia studies suggest 0–15° tilt year-round.';
+  if (note) note.textContent = '⚠ Clear-sky geometric estimate. Does not account for clouds or haze.';
 }
+
 
 document.getElementById('solarPrevMonth').addEventListener('click', ()=>{ solarState.monthOffset -= 1; renderSolarAdvisor(); });
 document.getElementById('solarNextMonth').addEventListener('click', ()=>{ solarState.monthOffset += 1; renderSolarAdvisor(); });
