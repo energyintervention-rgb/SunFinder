@@ -1141,6 +1141,7 @@ body{
       <button class="iconbtn" id="solarPrevMonth">‹</button>
       <span class="solar-month-label" id="solarMonthLabel">—</span>
       <button class="iconbtn" id="solarNextMonth">›</button>
+      <button class="iconbtn" id="solarResetMonth" title="Back to current month">⟳</button>
     </div>
 
     <div class="solar-result-grid">
@@ -2588,6 +2589,10 @@ function renderSolarAdvisor(){
 
   label.textContent = targetDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
+  // Show reset button only when not on current month
+  const resetBtn = document.getElementById('solarResetMonth');
+  if (resetBtn) resetBtn.style.visibility = solarState.monthOffset === 0 ? 'hidden' : 'visible';
+
   let d;
   let isDemo = false;
   if (state.lat !== null && state.lon !== null && typeof SunCalc !== 'undefined') {
@@ -2654,6 +2659,7 @@ function renderSolarAdvisor(){
 
 document.getElementById('solarPrevMonth').addEventListener('click', ()=>{ solarState.monthOffset -= 1; renderSolarAdvisor(); });
 document.getElementById('solarNextMonth').addEventListener('click', ()=>{ solarState.monthOffset += 1; renderSolarAdvisor(); });
+document.getElementById('solarResetMonth').addEventListener('click', ()=>{ solarState.monthOffset = 0; renderSolarAdvisor(); });
 
 
 
