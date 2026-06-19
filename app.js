@@ -178,9 +178,6 @@ function computeSunData(){
   if (document.getElementById('previewDate') && document.getElementById('previewDate').value) {
     computePreview('previewDate', 'previewTime', null);
   }
-  if (document.getElementById('previewDateAr') && document.getElementById('previewDateAr').value) {
-    computePreview('previewDateAr', 'previewTimeAr', 'previewResultAr');
-  }
 
   if (document.getElementById('screen-solar') && document.getElementById('screen-solar').classList.contains('active') && typeof renderSolarAdvisor === 'function') {
     renderSolarAdvisor();
@@ -354,43 +351,67 @@ function updateAlignmentBanners(){
   if (!state.today || state.heading === null) return;
 
   const riseDelta = Math.abs(angularDelta(state.heading, state.today.sunriseAz));
-  const setDelta = Math.abs(angularDelta(state.heading, state.today.sunsetAz));
+  const setDelta  = Math.abs(angularDelta(state.heading, state.today.sunsetAz));
 
-  let bannerHtml = null;
+  let bannerHtml  = null;
   let bannerClass = null;
+  let stopAngle   = null;  // angle on dial where stop indicator points
+  let stopClass   = null;
+  let stopText    = null;
 
-  // If both happen to be within tolerance at once (only possible for
-  // locations/dates where sunrise and sunset azimuths are very close
-  // together), prefer whichever is more precisely aligned.
   if (riseDelta <= ALIGNMENT_TOLERANCE_DEG && setDelta <= ALIGNMENT_TOLERANCE_DEG) {
     if (riseDelta <= setDelta) {
       bannerHtml = `○ Facing Sunrise — ${fmtTime(state.today.sunrise)}`;
       bannerClass = 'sunrise-align';
+      stopAngle = state.today.sunriseAz - state.heading;
+      stopClass = 'sunrise-stop';
+      stopText  = '○ SUNRISE';
     } else {
       bannerHtml = `● Facing Sunset — ${fmtTime(state.today.sunset)}`;
       bannerClass = 'sunset-align';
+      stopAngle = state.today.sunsetAz - state.heading;
+      stopClass = 'sunset-stop';
+      stopText  = '● SUNSET';
     }
   } else if (riseDelta <= ALIGNMENT_TOLERANCE_DEG) {
     bannerHtml = `○ Facing Sunrise — ${fmtTime(state.today.sunrise)}`;
     bannerClass = 'sunrise-align';
+    stopAngle = state.today.sunriseAz - state.heading;
+    stopClass = 'sunrise-stop';
+    stopText  = '○ SUNRISE';
   } else if (setDelta <= ALIGNMENT_TOLERANCE_DEG) {
     bannerHtml = `● Facing Sunset — ${fmtTime(state.today.sunset)}`;
     bannerClass = 'sunset-align';
+    stopAngle = state.today.sunsetAz - state.heading;
+    stopClass = 'sunset-stop';
+    stopText  = '● SUNSET';
   }
 
-  [ 'homeAlignBanner', 'arAlignBanner' ].forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (bannerHtml){
-      el.textContent = bannerHtml;
-      el.className = el.id === 'arAlignBanner'
-        ? `align-banner align-banner-ar ${bannerClass}`
-        : `align-banner ${bannerClass}`;
-      el.style.display = 'flex';
+  // Home screen banner
+  const homeBanner = document.getElementById('homeAlignBanner');
+  if (homeBanner) {
+    if (bannerHtml) {
+      homeBanner.textContent = bannerHtml;
+      homeBanner.className = `align-banner ${bannerClass}`;
+      homeBanner.style.display = 'flex';
     } else {
-      el.style.display = 'none';
+      homeBanner.style.display = 'none';
     }
-  });
+  }
+
+  // Stop indicator on compass dial
+  const stopEl = document.getElementById('stopIndicator');
+  const stopLbl = document.getElementById('stopLabel');
+  if (stopEl) {
+    if (stopAngle !== null) {
+      stopEl.style.transform = `rotate(${stopAngle}deg)`;
+      stopEl.className = `stop-indicator ${stopClass}`;
+      stopEl.style.display = 'block';
+      if (stopLbl) stopLbl.textContent = stopText;
+    } else {
+      stopEl.style.display = 'none';
+    }
+  }
 }
 
 function updateCompassCaption(){
@@ -456,129 +477,14 @@ document.getElementById('calibBtn').addEventListener('click', async ()=>{
   state.calibrated = true;
   document.getElementById('calibStatus').textContent = 'Calibration requested — move phone in a figure‑8';
 });
-document.getElementById('arCalibBtn').addEventListener('click', async ()=>{
-  await enableCompass();
-  hideCompassEnableBtn();
-});
 
-// ---------- AR mode camera toggle ----------
-let arCameraStream = null; // null = camera off; MediaStream object = camera on
-
-async function toggleARCamera(){
-  const btn = document.getElementById('arCameraBtn');
-  const view = document.getElementById('arView');
-
-  // --- TURN OFF ---
-  if (arCameraStream !== null) {
-    // Stop all tracks (this releases the camera hardware and removes
-    // the recording indicator from the status bar on iOS/Android).
-    arCameraStream.getTracks().forEach(track => track.stop());
-    arCameraStream = null;
-
-    // Remove the video element from the DOM
-    const video = view.querySelector('video');
-    if (video) video.remove();
-
-    btn.textContent = 'Enable camera';
-    return;
-  }
-
-  // --- TURN ON ---
-  if (!('mediaDevices' in navigator) || !navigator.mediaDevices.getUserMedia) {
-    btn.textContent = 'Camera not supported';
-    return;
-  }
-  try {
-    arCameraStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
-    let video = view.querySelector('video');
-    if (!video){
-      video = document.createElement('video');
-      video.autoplay = true; video.playsInline = true; video.muted = true;
-      view.insertBefore(video, view.firstChild);
-    }
-    video.srcObject = arCameraStream;
-    btn.textContent = 'Camera off';
-  } catch(e) {
-    arCameraStream = null;
-    btn.textContent = 'Camera permission denied';
-  }
-}
-document.getElementById('arCameraBtn').addEventListener('click', toggleARCamera);
+// ---------- AR mode removed ----------
+// AR Mode screen was removed. Camera and AR calibration code removed.
 
 function renderAR(){
   if (!state.today) return;
-  document.getElementById('arSunriseTime').textContent = 'Sunrise ' + fmtTime(state.today.sunrise);
-  document.getElementById('arSunsetTime').textContent = 'Sunset ' + fmtTime(state.today.sunset);
-
-  // Horizon line itself must move with real pitch too, or it will visually
-  // disagree with the now-pitch-aware sun markers. 0° pitch (camera level
-  // with the true horizon) puts the line at screen center; tilting the
-  // phone up moves the horizon line down on screen, and vice versa —
-  // same convention as the marker math below.
-  const horizonEl = document.querySelector('.ar-horizon');
-  if (horizonEl) {
-    const fovV = 70;
-    const horizonTopPct = state.pitch === null
-      ? 60  // fallback to the original fixed placement until pitch is known
-      : Math.max(-20, Math.min(120, 50 + (state.pitch / fovV) * 50));
-    horizonEl.style.top = horizonTopPct + '%';
-  }
-
-  const pitchEl = document.getElementById('pitchReadout');
-  if (pitchEl) {
-    pitchEl.textContent = state.pitch === null
-      ? 'Tilt: waiting for sensor…'
-      : `Tilt: ${state.pitch >= 0 ? '+' : ''}${state.pitch.toFixed(0)}°`;
-  }
-
-  const heading = state.heading ?? 0;
-  // Map azimuth delta to horizontal screen position.
-  // Assume a ~90° horizontal field of view for the mock camera frame.
-  const fovH = 90;
-  function angleToLeftPercent(targetAz){
-    let delta = ((targetAz - heading + 540) % 360) - 180; // -180..180
-    const pct = 50 + (delta / fovH) * 50;
-    return Math.max(-20, Math.min(120, pct)); // allow sliding off-screen a bit
-  }
-
-  // Map altitude (sun's real height above horizon) against pitch (how
-  // far up/down the phone is currently tilted) to a vertical screen
-  // position. When pitch is unavailable (sensor hasn't reported beta
-  // yet, or device doesn't support it), fall back to a fixed mid-height
-  // placement rather than guessing — this matches the app's existing
-  // policy of showing "--" / a clear fallback instead of inventing data.
-  const fovV = 70; // vertical field of view assumed for the mock camera frame
-  function altitudeToTopPercent(altitudeDeg){
-    if (state.pitch === null) {
-      // No real pitch data yet — keep the previous fixed placement so
-      // the marker doesn't jump to a meaningless position.
-      return 62;
-    }
-    const delta = altitudeDeg - state.pitch; // positive = sun is above where camera points
-    const pct = 50 - (delta / fovV) * 50; // screen "up" = smaller top%, hence the minus
-    return Math.max(-20, Math.min(120, pct));
-  }
-
-  const riseLeft = angleToLeftPercent(state.today.sunriseAz);
-  const setLeft = angleToLeftPercent(state.today.sunsetAz);
-  // Sunrise/sunset markers represent the horizon-crossing moment, i.e.
-  // altitude = 0° by definition — that's real, not a placeholder.
-  const riseTop = altitudeToTopPercent(0);
-  const setTop = altitudeToTopPercent(0);
-
-  document.getElementById('arSunrise').style.left = riseLeft + '%';
-  document.getElementById('arSunrise').style.top = riseTop + '%';
-  document.getElementById('arSunrise').style.bottom = 'auto';
-  document.getElementById('arSunrise').style.display =
-    (riseLeft >= -15 && riseLeft <= 115 && riseTop >= -15 && riseTop <= 115) ? 'flex' : 'none';
-
-  document.getElementById('arSunset').style.left = setLeft + '%';
-  document.getElementById('arSunset').style.top = setTop + '%';
-  document.getElementById('arSunset').style.bottom = 'auto';
-  document.getElementById('arSunset').style.display =
-    (setLeft >= -15 && setLeft <= 115 && setTop >= -15 && setTop <= 115) ? 'flex' : 'none';
-
-  renderPreviewAR();
+  // AR Mode screen removed — this function is a no-op stub.
+  // All AR-related DOM references cleaned up.
 }
 
 // =========================================================
@@ -650,7 +556,6 @@ function computePreview(dateInputId, timeInputId, resultElId){
     state.previewResult = null;
     renderSkyView();
     positionPreviewMarker();
-    renderPreviewAR();
     return;
   }
 
@@ -659,7 +564,6 @@ function computePreview(dateInputId, timeInputId, resultElId){
     state.previewResult = null;
     renderSkyView();
     positionPreviewMarker();
-    renderPreviewAR();
     return;
   }
 
@@ -684,7 +588,6 @@ function computePreview(dateInputId, timeInputId, resultElId){
 
   renderSkyView();
   positionPreviewMarker();
-  renderPreviewAR();
 }
 
 // Renders the Home screen sky panel with the reference-style arc:
@@ -912,47 +815,6 @@ function positionPreviewMarker(){
   document.getElementById('previewAzLabel').textContent = fmtAz(state.previewResult.azimuth);
 }
 
-function renderPreviewAR(){
-  const marker = document.getElementById('arPreview');
-  const skyBg = document.getElementById('arSkyBg');
-  if (!marker) return;
-  if (!state.previewResult) {
-    marker.style.display = 'none';
-    drawSkyPath('arPathLine', null, 'ar'); // clear path
-    return;
-  }
-
-  if (skyBg) {
-    // AR background is now static (defined in CSS) — not driven by altitude.
-  }
-
-  const heading = state.heading ?? 0;
-  const fov = 90;
-  let delta = ((state.previewResult.azimuth - heading + 540) % 360) - 180;
-  const leftPct = Math.max(-20, Math.min(120, 50 + (delta / fov) * 50));
-
-  const altitudeDeg = state.previewResult.altitudeDeg;
-  const fovV = 70;
-  let topPct;
-  if (state.pitch === null) {
-    topPct = 62;
-  } else {
-    const vDelta = altitudeDeg - state.pitch;
-    topPct = Math.max(-20, Math.min(120, 50 - (vDelta / fovV) * 50));
-  }
-
-  marker.style.left = leftPct + '%';
-  marker.style.top = topPct + '%';
-  marker.style.bottom = 'auto';
-  marker.style.display = (leftPct >= -15 && leftPct <= 115 && altitudeDeg >= -5) ? 'flex' : 'none';
-
-  document.getElementById('arPreviewTime').textContent =
-    'Preview ' + fmtTime(state.previewResult.dateTime);
-
-  // Draw the sun path arc for the selected date on the AR overlay
-  drawSkyPath('arPathLine', state.previewResult.dateTime, 'ar');
-}
-
 function wirePreviewControls(dateId, timeId, resultId, nowBtnId){
   const dateInput = document.getElementById(dateId);
   const timeInput = document.getElementById(timeId);
@@ -978,7 +840,7 @@ function wirePreviewControls(dateId, timeId, resultId, nowBtnId){
 }
 
 wirePreviewControls('previewDate', 'previewTime', null, 'previewNowBtn');
-wirePreviewControls('previewDateAr', 'previewTimeAr', 'previewResultAr', 'previewNowBtnAr');
+// AR Mode removed — wirePreviewControls for AR removed.
 
 // =========================================================
 // Solar Panel Advisor
