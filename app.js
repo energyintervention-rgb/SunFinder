@@ -261,9 +261,9 @@ function positionMarkers(){
   document.getElementById('sunsetMarker').style.transform = `rotate(${sunsetAngle}deg)`;
 
   document.getElementById('sunriseMarker').querySelector('.dot-ring').style.transform =
-    `translate(-65px,-90px) rotate(${-sunriseAngle}deg)`;
+    `translate(-65px,-110px) rotate(${-sunriseAngle}deg)`;
   document.getElementById('sunsetMarker').querySelector('.dot-ring').style.transform =
-    `translate(-65px,-90px) rotate(${-sunsetAngle}deg)`;
+    `translate(-65px,-110px) rotate(${-sunsetAngle}deg)`;
 
   // Preview marker still needs to update with heading on the compass dial
   if (state.previewResult) {
@@ -411,6 +411,24 @@ function updateAlignmentBanners(){
     } else {
       stopEl.style.display = 'none';
     }
+  }
+
+  // Glow ring on the aligned dot + rim highlight on the dial
+  const dial = document.getElementById('compassDial');
+  const sunriseGlyph = document.querySelector('#sunriseMarker .glyph');
+  const sunsetGlyph  = document.querySelector('#sunsetMarker .glyph');
+
+  // Clear previous alignment classes
+  if (dial) dial.classList.remove('aligned-sunrise','aligned-sunset');
+  if (sunriseGlyph) sunriseGlyph.classList.remove('aligned-sunrise','aligned-sunset');
+  if (sunsetGlyph)  sunsetGlyph.classList.remove('aligned-sunrise','aligned-sunset');
+
+  if (bannerClass === 'sunrise-align') {
+    if (dial) dial.classList.add('aligned-sunrise');
+    if (sunriseGlyph) sunriseGlyph.classList.add('aligned-sunrise');
+  } else if (bannerClass === 'sunset-align') {
+    if (dial) dial.classList.add('aligned-sunset');
+    if (sunsetGlyph) sunsetGlyph.classList.add('aligned-sunset');
   }
 }
 
@@ -811,7 +829,7 @@ function positionPreviewMarker(){
   const angle = state.previewResult.azimuth - heading;
   marker.style.display = 'block';
   marker.style.transform = `rotate(${angle}deg)`;
-  marker.querySelector('.dot-ring').style.transform = `translate(-65px,-90px) rotate(${-angle}deg)`;
+  marker.querySelector('.dot-ring').style.transform = `translate(-65px,-110px) rotate(${-angle}deg)`;
   document.getElementById('previewAzLabel').textContent = fmtAz(state.previewResult.azimuth);
 }
 
