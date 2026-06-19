@@ -736,6 +736,9 @@ function renderSkyView(){
     const progress = Math.max(0, Math.min(1,
       (nowMs - state.today.sunrise.getTime()) / dayMs
     ));
+    // Arc goes left=sunset, right=sunrise, so invert progress so the dot
+    // starts on the right (sunrise end) and moves left toward sunset.
+    const arcProgress = 1 - progress;
     const isDaytime = nowMs >= state.today.sunrise.getTime() && nowMs <= state.today.sunset.getTime();
 
     if (isDaytime){
@@ -744,8 +747,8 @@ function renderSkyView(){
         const mt = 1-t;
         return mt*mt*mt*p0 + 3*mt*mt*t*p1 + 3*mt*t*t*p2 + t*t*t*p3;
       }
-      const dotX = cubicBezier(progress, xRise, xRise, xSet, xSet);
-      const dotY = cubicBezier(progress, yHorizon, yPeak, yPeak, yHorizon);
+      const dotX = cubicBezier(arcProgress, xRise, xRise, xSet, xSet);
+      const dotY = cubicBezier(arcProgress, yHorizon, yPeak, yPeak, yHorizon);
       sunDot.setAttribute('cx', dotX.toFixed(1));
       sunDot.setAttribute('cy', dotY.toFixed(1));
       sunDot.style.display = '';
