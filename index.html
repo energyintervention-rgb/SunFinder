@@ -142,6 +142,7 @@ body{
   width:300px;height:300px;
   margin:6px auto 18px;
   display:flex;align-items:center;justify-content:center;
+  padding-top:0;
 }
 .compass-dial{
   width:100%;height:100%;
@@ -182,21 +183,33 @@ body{
   z-index:5;
   pointer-events:none;
 }
-/* Big North arrow replaces the old thin needle */
-.needle{
-  display:none; /* replaced by SVG arrow below */
-}
+/* Long North arrow replacing the old thin needle */
+.needle{ display:none; }
 .north-arrow{
   width:44px;
-  height:90px;
+  height:140px;
 }
-.north-label{
+
+/* Static STOP triangle — sits outside the compass rim at the top,
+   tip pointing down touching the rim, fixed/never rotates */
+.stop-static{
+  position:absolute;
+  top:-28px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:1px;
+  pointer-events:none;
+  z-index:20;
+}
+.stop-static-label{
   font-family:var(--mono);
+  font-size:9px;
   font-weight:700;
-  font-size:11px;
-  color:#e63030;
-  margin-top:-2px;
-  letter-spacing:0.1em;
+  color:#ff9d3c;
+  letter-spacing:0.08em;
 }
 
 /* Stop indicator — shown on the compass rim when heading aligns
@@ -929,7 +942,6 @@ body{
     <div class="compass-wrap">
       <div class="compass-dial" id="compassDial">
         <!-- ticks injected by JS -->
-        <div class="cardinal N">N</div>
         <div class="cardinal E">E</div>
         <div class="cardinal S">S</div>
         <div class="cardinal W">W</div>
@@ -954,19 +966,16 @@ body{
         </div>
 
         <div class="compass-center">
-          <!-- Big bold North arrow: red top half, dark bottom half -->
-          <svg class="north-arrow" viewBox="0 0 44 90" xmlns="http://www.w3.org/2000/svg">
-            <!-- North (red) half — points up toward N -->
-            <polygon points="22,2 36,45 22,36 8,45" fill="#e63030"/>
-            <!-- South (dark) half — points down -->
-            <polygon points="22,88 36,45 22,54 8,45" fill="rgba(255,255,255,0.25)"/>
-            <!-- Center dot -->
-            <circle cx="22" cy="45" r="4" fill="var(--panel)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+          <!-- Long North arrow: red half reaches near the rim, white south half -->
+          <svg class="north-arrow" viewBox="0 0 44 140" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="22,2 32,70 22,58 12,70" fill="#e63030"/>
+            <polygon points="22,138 32,70 22,82 12,70" fill="rgba(255,255,255,0.22)"/>
+            <circle cx="22" cy="70" r="5" fill="var(--panel)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+            <circle cx="22" cy="70" r="2.5" fill="#e63030"/>
           </svg>
-          <span class="north-label">N</span>
         </div>
 
-        <!-- Stop indicator: appears on rim pointing at sun event when aligned -->
+        <!-- Stop indicator (rotating, shown when aligned) -->
         <div class="stop-indicator" id="stopIndicator">
           <div class="stop-pip">
             <span class="stop-arrow">▼</span>
@@ -974,11 +983,19 @@ body{
           </div>
         </div>
 
-        <!-- Floating compass enable button — shown until sensor activates -->
+        <!-- Floating compass enable button -->
         <button class="compass-enable-btn" id="compassEnableBtn">
           <span class="compass-enable-icon">⊕</span>
           <span>Tap to enable compass</span>
         </button>
+      </div>
+
+      <!-- Static STOP triangle — sits OUTSIDE the compass rim, fixed at top, tip touches rim -->
+      <div class="stop-static">
+        <svg viewBox="0 0 30 22" width="30" height="22" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="15,22 0,0 30,0" fill="#ff9d3c"/>
+        </svg>
+        <span class="stop-static-label">STOP</span>
       </div>
     </div>
     <div class="compass-caption" id="compassCaption">Compass: waiting for sensor permission</div>
