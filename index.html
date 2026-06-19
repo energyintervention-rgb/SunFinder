@@ -1274,8 +1274,6 @@ body{
     <div class="section-title">Sensors</div>
     <div class="settings-list">
       <div class="setting-row">
-        <div class="stext"><span class="stitle">AR Mode</span><span class="ssub">Show camera overlay view</span></div>
-        <button class="switch on" id="arToggle"><span class="knob"></span></button>
       </div>
       <div class="setting-row">
         <div class="stext"><span class="stitle">Compass calibration</span><span class="ssub" id="calibStatus">Not yet calibrated</span></div>
@@ -1640,11 +1638,10 @@ const state = {
   headingSource: null,      // 'absolute' | 'webkit' | null
   timeFormat: '12',         // '12' | '24'
   theme: 'dark',
-  arEnabled: true,
   calibrated: false,
   forecastDays: [],
   previewResult: null,      // { azimuth, altitudeDeg, dateTime } or null until computed
-  pitch: null,               // degrees above horizon the camera is pointed; null until beta reported
+  today: null,              // { sunrise, sunset, sunriseAz, sunsetAz }
 };
 
 // ---------- helpers ----------
@@ -1712,16 +1709,9 @@ function setTimeFormat(f){
   document.getElementById('time24Btn').classList.toggle('active', f==='24');
   renderToday();
   renderForecast();
-  renderAR();
 }
 document.getElementById('time12Btn').addEventListener('click', ()=>setTimeFormat('12'));
 document.getElementById('time24Btn').addEventListener('click', ()=>setTimeFormat('24'));
-
-// ---------- AR toggle ----------
-document.getElementById('arToggle').addEventListener('click', (e)=>{
-  state.arEnabled = !state.arEnabled;
-  e.currentTarget.classList.toggle('on', state.arEnabled);
-});
 
 // ---------- geolocation ----------
 function classifyAccuracy(meters){
@@ -1789,7 +1779,6 @@ function computeSunData(){
 
   renderToday();
   positionMarkers();
-  renderAR();
   buildForecast();
 
   // Now that location is known, recompute the sky preview (it may have
@@ -1917,41 +1906,14 @@ function handleOrientation(event){
     state.headingSource = 'relative-uncalibrated';
   }
 
-  // ---- pitch (tilt up/down), used to move the AR sun marker vertically ----
-  // Per the W3C DeviceOrientationEvent spec: when a phone is held upright
-  // in portrait, screen facing the user, beta is approximately 90°
-  // regardless of heading. Tilting the top of the phone backward (camera
-  // pointing up at the sky) DECREASES beta below 90; tilting forward
-  // (camera pointing down) INCREASES it above 90.
-  // So: degrees-above-the-horizon-the-camera-points ≈ 90 − beta.
-  //
-  // KNOWN LIMITATION, stated plainly: this formula is verified against
-  // the W3C spec for the common case (portrait, screen facing the user).
-  // It has NOT been tested on a real device by me — iOS vs Android and
-  // portrait vs landscape are known sources of inconsistency in this
-  // exact API (this is the same category of bug that affected Google's
-  // own Sky Map for years). If the sun moves the WRONG direction when
-  // you tilt, that's a sign this sign needs flipping for your device —
-  // tell me what you observe and I'll correct it from real feedback
-  // rather than guessing further.
-  if (event.beta !== null && event.beta !== undefined) {
-    state.pitch = 90 - event.beta;
-  }
-
   if (heading !== null) {
     state.heading = (heading + 360) % 360;
     orientationActive = true;
-    hideCompassEnableBtn(); // hide button once sensor is actually working
+    hideCompassEnableBtn();
     updateCompassCaption();
     rotateDial();
     positionMarkers();
-    renderAR();
     updateAlignmentBanners();
-  } else if (event.beta !== null && event.beta !== undefined) {
-    // Heading didn't update this event, but pitch did — still refresh
-    // AR so vertical sun position stays live even if alpha is momentarily
-    // unavailable.
-    renderAR();
   }
 }
 
@@ -2117,14 +2079,6 @@ document.getElementById('calibBtn').addEventListener('click', async ()=>{
 });
 
 // ---------- AR mode removed ----------
-// AR Mode screen was removed. Camera and AR calibration code removed.
-
-function renderAR(){
-  if (!state.today) return;
-  // AR Mode screen removed — this function is a no-op stub.
-  // All AR-related DOM references cleaned up.
-}
-
 // =========================================================
 // Date/time PREVIEW feature — "sky view"
 //
@@ -2163,28 +2117,6 @@ function getPreviewDateTimeLocal(dateInputId, timeInputId){
 // Returns a CSS gradient string for a given solar altitude (degrees),
 // using real astronomical twilight thresholds rather than arbitrary
 // color picking. Interpolates smoothly between named bands.
-function skyGradientForAltitude(altitudeDeg){
-  const bands = [
-    { alt: 15,  grad: 'linear-gradient(180deg,#2a6fd1 0%, #8fcbff 60%, #ffe9c4 100%)' }, // full day
-    { alt: 0,   grad: 'linear-gradient(180deg,#3a5a8c 0%, #e8966b 65%, #ffd9a0 100%)' }, // sunrise/sunset band
-    { alt: -6,  grad: 'linear-gradient(180deg,#1c2a4a 0%, #7a4f6b 65%, #c97a5a 100%)' }, // civil twilight
-    { alt: -18, grad: 'linear-gradient(180deg,#070b18 0%, #1c2540 70%, #2e2a4a 100%)' }, // nautical/astro twilight
-    { alt: -90, grad: 'linear-gradient(180deg,#04050c 0%, #0a0f1c 100%)' },              // night
-  ];
-  if (altitudeDeg >= bands[0].alt) return bands[0].grad;
-  if (altitudeDeg <= bands[bands.length-1].alt) return bands[bands.length-1].grad;
-  // Find which band range we're inside. bands[i] is the UPPER bound of a
-  // range and bands[i+1] is the LOWER bound — the gradient that applies
-  // is bands[i+1]'s (the band whose range we're currently inside),
-  // not bands[i]'s (that would label band by its ceiling, not its content).
-  for (let i=0; i<bands.length-1; i++){
-    if (altitudeDeg <= bands[i].alt && altitudeDeg > bands[i+1].alt){
-      return bands[i+1].grad;
-    }
-  }
-  return bands[bands.length-1].grad;
-}
-
 function computePreview(dateInputId, timeInputId, resultElId){
   const resultEl = document.getElementById(resultElId);
   if (state.lat === null || state.lon === null || typeof SunCalc === 'undefined') {
@@ -2347,96 +2279,6 @@ function renderSkyView(){
 // if you select a time on the picker, the dot should sit exactly
 // ON the arc.
 // =========================================================
-
-function computeSunPathPoints(date, lat, lon, heading, fovH, fovV, horizonPct, pitch){
-  // Build a UTC-anchored local-midnight for this date at this longitude.
-  const utcOffsetHours = estimateUtcOffsetHours(lon);
-  const localMidnightUtcMs = Date.UTC(
-    date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0
-  ) - utcOffsetHours * 3600 * 1000;
-
-  const points = [];
-  for (let mins = 0; mins < 24 * 60; mins += 15) {
-    const t = new Date(localMidnightUtcMs + mins * 60000);
-    const pos = SunCalc.getPosition(t, lat, lon);
-    const altDeg = pos.altitude * 180 / Math.PI;
-    if (altDeg < -4) continue; // skip deep night, keep just-below-horizon for smooth fade-in
-
-    const azCompass = azToCompassBearing(pos.azimuth);
-    const delta = ((azCompass - heading + 540) % 360) - 180;
-    const leftPct = 50 + (delta / fovH) * 50;
-
-    // Vertical: same formula as renderSkyView / renderPreviewAR
-    let topPct;
-    if (pitch !== null) {
-      // AR mode: altitude relative to current camera tilt
-      const vDelta = altDeg - pitch;
-      topPct = 50 - (vDelta / fovV) * 50;
-    } else {
-      // Sky panel: fixed horizon at horizonPct
-      if (altDeg >= 0) {
-        topPct = Math.max(6, horizonPct - (altDeg / 90) * (horizonPct - 8));
-      } else {
-        topPct = Math.min(96, horizonPct + ((-altDeg) / 30) * (96 - horizonPct));
-      }
-    }
-
-    points.push({ leftPct, topPct, altDeg, mins });
-  }
-  return points;
-}
-
-function drawSkyPath(pathElId, dateTime, mode){
-  const pathEl = document.getElementById(pathElId);
-  if (!pathEl) return;
-
-  if (!state.lat || !state.lon || !dateTime || typeof SunCalc === 'undefined') {
-    pathEl.setAttribute('d', '');
-    return;
-  }
-
-  const heading = state.heading ?? 0;
-  const fovH = mode === 'sky' ? 100 : 90;
-  const fovV = 70;
-  const horizonPct = mode === 'sky' ? 70 : 60;
-  const pitch = mode === 'ar' ? state.pitch : null;
-
-  const points = computeSunPathPoints(
-    dateTime, state.lat, state.lon,
-    heading, fovH, fovV, horizonPct, pitch
-  );
-
-  if (points.length < 2) {
-    pathEl.setAttribute('d', '');
-    return;
-  }
-
-  // Build SVG path using percentage-based viewBox coordinates.
-  // We work in a 100×100 coordinate space matching the % positions,
-  // so the path scales correctly with any panel size.
-  // The SVG element itself has width/height=100% so we can use
-  // a viewBox="0 0 100 100" and preserveAspectRatio="none".
-  const svg = pathEl.closest('svg');
-  if (svg && !svg.getAttribute('viewBox')) {
-    svg.setAttribute('viewBox', '0 0 100 100');
-    svg.setAttribute('preserveAspectRatio', 'none');
-  }
-
-  // Only draw points that are reasonably on-screen (allow slight overflow)
-  const visible = points.filter(p => p.leftPct >= -10 && p.leftPct <= 110 && p.topPct >= -10 && p.topPct <= 110);
-  if (visible.length < 2) {
-    pathEl.setAttribute('d', '');
-    return;
-  }
-
-  // Build the path — M for first, L for subsequent
-  let d = `M ${visible[0].leftPct.toFixed(1)},${visible[0].topPct.toFixed(1)}`;
-  for (let i = 1; i < visible.length; i++) {
-    d += ` L ${visible[i].leftPct.toFixed(1)},${visible[i].topPct.toFixed(1)}`;
-  }
-
-  pathEl.setAttribute('d', d);
-}
 
 function positionPreviewMarker(){
   const marker = document.getElementById('previewMarker');
