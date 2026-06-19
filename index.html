@@ -228,6 +228,36 @@ body{
   margin-bottom:6px;
 }
 
+/* Floating compass enable button — sits centered on the dial,
+   hidden automatically once the sensor starts reporting */
+.compass-enable-btn{
+  position:absolute;
+  left:50%;top:50%;
+  transform:translate(-50%, 30px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  background:var(--panel);
+  border:1px solid var(--sunrise);
+  border-radius:var(--radius-sm);
+  padding:10px 18px;
+  font-family:var(--display);
+  font-size:12px;
+  font-weight:600;
+  color:var(--sunrise);
+  cursor:pointer;
+  backdrop-filter:blur(8px);
+  z-index:10;
+  transition:opacity 0.3s ease;
+}
+.compass-enable-btn .compass-enable-icon{
+  font-size:20px;
+}
+.compass-enable-btn.hidden{
+  display:none;
+}
+
 .align-banner{
   margin:4px 20px 4px;
   padding:12px 16px;
@@ -873,6 +903,12 @@ body{
         <div class="compass-center">
           <div class="needle"></div>
         </div>
+
+        <!-- Floating compass enable button — shown until sensor activates -->
+        <button class="compass-enable-btn" id="compassEnableBtn">
+          <span class="compass-enable-icon">⊕</span>
+          <span>Tap to enable compass</span>
+        </button>
       </div>
     </div>
     <div class="compass-caption" id="compassCaption">Compass: waiting for sensor permission</div>
