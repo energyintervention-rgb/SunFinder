@@ -261,9 +261,9 @@ function positionMarkers(){
   document.getElementById('sunsetMarker').style.transform = `rotate(${sunsetAngle}deg)`;
 
   document.getElementById('sunriseMarker').querySelector('.dot-ring').style.transform =
-    `translate(-65px,-148px) rotate(${-sunriseAngle}deg)`;
+    `translate(-65px,-90px) rotate(${-sunriseAngle}deg)`;
   document.getElementById('sunsetMarker').querySelector('.dot-ring').style.transform =
-    `translate(-65px,-148px) rotate(${-sunsetAngle}deg)`;
+    `translate(-65px,-90px) rotate(${-sunsetAngle}deg)`;
 
   // Preview marker still needs to update with heading on the compass dial
   if (state.previewResult) {
@@ -811,7 +811,7 @@ function positionPreviewMarker(){
   const angle = state.previewResult.azimuth - heading;
   marker.style.display = 'block';
   marker.style.transform = `rotate(${angle}deg)`;
-  marker.querySelector('.dot-ring').style.transform = `translate(-65px,-148px) rotate(${-angle}deg)`;
+  marker.querySelector('.dot-ring').style.transform = `translate(-65px,-90px) rotate(${-angle}deg)`;
   document.getElementById('previewAzLabel').textContent = fmtAz(state.previewResult.azimuth);
 }
 
