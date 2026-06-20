@@ -36,7 +36,7 @@
   --radius:20px;
   --radius-sm:12px;
 
-  --display:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --display:'Space Grotesk',system-ui,sans-serif;
   --mono:ui-monospace,'SF Mono','Menlo','Consolas',monospace;
 }
 
@@ -936,6 +936,153 @@ body{
 }
 .permission-box p{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
 
+/* ---------- PSH — Peak Sun Hours ---------- */
+.psh-fetch-card{
+  margin:0 20px 12px;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.psh-source-badge{
+  font-size:10px;
+  padding:3px 8px;
+  border-radius:6px;
+  background:rgba(24,95,165,0.15);
+  color:#6fb5ff;
+  margin-bottom:10px;
+  display:inline-block;
+}
+.psh-fetch-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.psh-fetch-row .btn{
+  flex-shrink:0;
+  padding:9px 14px;
+  font-size:12px;
+}
+.psh-status{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.4;
+}
+.psh-status.ok{ color:#2f9e63; }
+.psh-status.err{ color:#d24343; }
+.psh-stat-grid{
+  display:flex;
+  gap:10px;
+  margin:0 20px 12px;
+}
+.psh-stat{
+  flex:1;
+  padding:12px 14px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+}
+.psh-stat-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.07em;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+.psh-stat-val{
+  font-family:var(--mono);
+  font-weight:700;
+  font-size:26px;
+  color:var(--sunrise);
+  line-height:1;
+}
+.psh-stat-sub{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--muted);
+  margin-top:4px;
+}
+.psh-chart-card{
+  margin:0 20px 12px;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.psh-chart-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.07em;
+  color:var(--muted);
+  margin-bottom:10px;
+}
+.psh-legend{
+  display:flex;
+  align-items:center;
+  font-size:11px;
+  color:var(--muted);
+  margin-top:8px;
+}
+.psh-legend-dot{
+  width:10px;height:10px;
+  border-radius:2px;
+  display:inline-block;
+  margin-right:4px;
+}
+.psh-legend-dot.high{ background:#BA7517; }
+.psh-legend-dot.mid{  background:#EF9F27; }
+.psh-legend-dot.low{  background:#FAC775; }
+.psh-yield-card{
+  margin:0 20px 12px;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.psh-slider-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.psh-slider-label{
+  font-size:12px;
+  color:var(--muted);
+  min-width:76px;
+}
+.psh-slider-val{
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:600;
+  min-width:48px;
+  text-align:right;
+  color:var(--ink);
+}
+.psh-yield-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+  padding-top:10px;
+  border-top:1px solid var(--panel-border);
+}
+.psh-yield-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:var(--muted);
+  margin-bottom:3px;
+}
+.psh-yield-val{
+  font-family:var(--mono);
+  font-weight:700;
+  font-size:17px;
+  color:var(--ink);
+}
+
 /* ---------- Lux Reader ---------- */
 .lux-main-card{
   margin:0 20px 14px;
@@ -1454,6 +1601,86 @@ body{
     </div>
   </section>
 
+  <!-- ============ PSH — PEAK SUN HOURS ============ -->
+  <section class="screen" id="screen-psh">
+    <div class="screen-title">☀ Peak Sun Hours</div>
+
+    <!-- Fetch card -->
+    <div class="psh-fetch-card">
+      <div class="psh-source-badge" id="pshSourceBadge" style="display:none;">
+        ■ NASA POWER · 22-yr climatology · ALLSKY_SFC_SW_DWN
+      </div>
+      <div class="psh-fetch-row">
+        <button class="btn primary" id="pshFetchBtn">Fetch for my location</button>
+        <span class="psh-status" id="pshStatus">Tap to load real irradiance data from NASA POWER for your GPS location.</span>
+      </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="psh-stat-grid">
+      <div class="psh-stat">
+        <div class="psh-stat-label">Best month</div>
+        <div class="psh-stat-val" id="pshBestMonth">--</div>
+        <div class="psh-stat-sub" id="pshBestVal">-- PSH/day</div>
+      </div>
+      <div class="psh-stat">
+        <div class="psh-stat-label">Annual average</div>
+        <div class="psh-stat-val" id="pshAvgVal">--</div>
+        <div class="psh-stat-sub">PSH / day</div>
+      </div>
+    </div>
+
+    <!-- Chart card -->
+    <div class="psh-chart-card">
+      <div class="psh-chart-label">Monthly PSH (kWh/m²/day)</div>
+      <div style="position:relative;height:180px;">
+        <canvas id="pshChart" role="img" aria-label="Monthly peak sun hours bar chart">Waiting for data.</canvas>
+      </div>
+      <div class="psh-legend">
+        <span class="psh-legend-dot high"></span>Above avg
+        <span class="psh-legend-dot mid" style="margin-left:10px;"></span>Average
+        <span class="psh-legend-dot low" style="margin-left:10px;"></span>Below avg
+      </div>
+    </div>
+
+    <!-- Energy yield card -->
+    <div class="psh-yield-card">
+      <div class="psh-chart-label">Energy yield estimate</div>
+      <div class="psh-slider-row">
+        <span class="psh-slider-label">Panel size</span>
+        <input type="range" min="1" max="20" value="5" step="1" id="pshPanelKw" class="preview-input" style="flex:1;padding:0;">
+        <span class="psh-slider-val" id="pshPanelOut">5 kWp</span>
+      </div>
+      <div class="psh-slider-row">
+        <span class="psh-slider-label">System eff.</span>
+        <input type="range" min="60" max="85" value="75" step="1" id="pshEffPct" class="preview-input" style="flex:1;padding:0;">
+        <span class="psh-slider-val" id="pshEffOut">75%</span>
+      </div>
+      <div class="psh-yield-grid">
+        <div class="psh-yield-item">
+          <div class="psh-yield-label">Daily avg</div>
+          <div class="psh-yield-val" id="pshDailyYield">--</div>
+        </div>
+        <div class="psh-yield-item">
+          <div class="psh-yield-label">Annual</div>
+          <div class="psh-yield-val" id="pshAnnualYield">--</div>
+        </div>
+        <div class="psh-yield-item">
+          <div class="psh-yield-label">Best month</div>
+          <div class="psh-yield-val" id="pshBestYield">--</div>
+        </div>
+        <div class="psh-yield-item">
+          <div class="psh-yield-label">Worst month</div>
+          <div class="psh-yield-val" id="pshWorstYield">--</div>
+        </div>
+      </div>
+      <div class="note-small" style="margin:10px 0 0;">
+        Formula: PSH × kWp × system efficiency. NASA POWER data includes real cloud cover and atmospheric conditions — not a clear-sky estimate.
+      </div>
+    </div>
+
+  </section>
+
   <!-- ============ LUX READER ============ -->
   <section class="screen" id="screen-lux">
     <div class="screen-title">◉ Lux Reader</div>
@@ -1512,6 +1739,7 @@ body{
     <button class="navbtn active" data-screen="home"><span class="ic">⌖</span>Home</button>
     <button class="navbtn" data-screen="forecast"><span class="ic">☰</span>Forecast</button>
     <button class="navbtn" data-screen="solar"><span class="ic">◐</span>Solar</button>
+    <button class="navbtn" data-screen="psh"><span class="ic">☀</span>PSH</button>
     <button class="navbtn" data-screen="lux"><span class="ic">◉</span>Lux</button>
     <button class="navbtn" data-screen="settings"><span class="ic">⚙</span>Settings</button>
   </nav>
@@ -1837,6 +2065,7 @@ else window.SunCalc = SunCalc;
 }());
 
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 /* =========================================================
    Sun Finder — prototype logic
@@ -2888,6 +3117,127 @@ document.getElementById('solarResetMonth').addEventListener('click', ()=>{ solar
 
 
 
+
+// ---------- PSH — Peak Sun Hours (NASA POWER) ----------
+const PSH_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let pshData = null;
+let pshChart = null;
+
+function pshBuildChart(data){
+  const avg = data.reduce((a,b)=>a+b,0)/data.length;
+  const ctx = document.getElementById('pshChart');
+  if(!ctx) return;
+  if(pshChart) pshChart.destroy();
+  pshChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: PSH_MONTHS,
+      datasets:[{
+        data: data,
+        backgroundColor: data.map(v =>
+          v >= avg*1.04 ? '#BA7517' :
+          v <= avg*0.96 ? '#FAC775' : '#EF9F27'
+        ),
+        borderRadius: 3,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.parsed.y.toFixed(2)+' PSH'}} },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:9}, autoSkip:false, maxRotation:0} },
+        y:{
+          min: 0,
+          grid:{ color:'rgba(255,255,255,0.05)' },
+          ticks:{ font:{size:9}, callback: v=>v.toFixed(0) }
+        }
+      }
+    }
+  });
+}
+
+function pshUpdateYield(){
+  if(!pshData) return;
+  const kw  = +document.getElementById('pshPanelKw').value;
+  const eff = +document.getElementById('pshEffPct').value / 100;
+  document.getElementById('pshPanelOut').textContent = kw + ' kWp';
+  document.getElementById('pshEffOut').textContent   = Math.round(eff*100) + '%';
+  const avg     = pshData.reduce((a,b)=>a+b,0) / pshData.length;
+  const maxPsh  = Math.max(...pshData);
+  const minPsh  = Math.min(...pshData);
+  const daily   = avg * kw * eff;
+  document.getElementById('pshDailyYield').textContent  = daily.toFixed(1) + ' kWh';
+  document.getElementById('pshAnnualYield').textContent = Math.round(daily*365).toLocaleString() + ' kWh';
+  document.getElementById('pshBestYield').textContent   = (maxPsh*kw*eff).toFixed(1) + ' kWh';
+  document.getElementById('pshWorstYield').textContent  = (minPsh*kw*eff).toFixed(1) + ' kWh';
+}
+
+function pshUpdateStats(data){
+  const avg    = data.reduce((a,b)=>a+b,0) / data.length;
+  const maxVal = Math.max(...data);
+  const bestIdx= data.indexOf(maxVal);
+  document.getElementById('pshBestMonth').textContent = PSH_MONTHS[bestIdx];
+  document.getElementById('pshBestVal').textContent   = maxVal.toFixed(2) + ' PSH/day';
+  document.getElementById('pshAvgVal').textContent    = avg.toFixed(2);
+  pshUpdateYield();
+}
+
+async function pshFetch(){
+  const btn    = document.getElementById('pshFetchBtn');
+  const status = document.getElementById('pshStatus');
+  btn.disabled = true;
+  status.className = 'psh-status';
+  status.textContent = 'Getting GPS location…';
+
+  if(!('geolocation' in navigator)){
+    status.className = 'psh-status err';
+    status.textContent = '⚠ GPS not available on this device.';
+    btn.disabled = false; return;
+  }
+
+  // Use cached state.lat/lon if already resolved
+  const doFetch = (lat, lon) => {
+    status.textContent = `Fetching NASA POWER data for ${lat.toFixed(4)}°, ${lon.toFixed(4)}°…`;
+    const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=ALLSKY_SFC_SW_DWN&community=RE&longitude=${lon.toFixed(4)}&latitude=${lat.toFixed(4)}&format=JSON`;
+    fetch(url)
+      .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(json=>{
+        const monthly = json.properties.parameter.ALLSKY_SFC_SW_DWN;
+        const data = ['01','02','03','04','05','06','07','08','09','10','11','12'].map(k=>+monthly[k]);
+        pshData = data;
+        pshBuildChart(data);
+        pshUpdateStats(data);
+        document.getElementById('pshSourceBadge').style.display = '';
+        status.className = 'psh-status ok';
+        status.textContent = '✓ Data loaded — NASA POWER 22-yr climatology (all-sky).';
+        btn.textContent  = 'Refresh';
+        btn.disabled = false;
+      })
+      .catch(e=>{
+        status.className = 'psh-status err';
+        status.textContent = '⚠ Fetch failed: ' + e.message + '. Check internet connection.';
+        btn.disabled = false;
+      });
+  };
+
+  if(state.lat !== null && state.lon !== null){
+    doFetch(state.lat, state.lon);
+  } else {
+    navigator.geolocation.getCurrentPosition(
+      pos => doFetch(pos.coords.latitude, pos.coords.longitude),
+      err => {
+        status.className = 'psh-status err';
+        status.textContent = '⚠ GPS error: ' + err.message;
+        btn.disabled = false;
+      },
+      { enableHighAccuracy:true, timeout:10000 }
+    );
+  }
+}
+
+document.getElementById('pshFetchBtn').addEventListener('click', pshFetch);
+document.getElementById('pshPanelKw').addEventListener('input', pshUpdateYield);
+document.getElementById('pshEffPct').addEventListener('input', pshUpdateYield);
 
 // ---------- Lux Reader ----------
 let luxSensor = null;
