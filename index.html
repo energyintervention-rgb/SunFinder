@@ -936,6 +936,52 @@ body{
 }
 .permission-box p{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
 
+/* ---------- Site Report ---------- */
+.rpt-card{
+  margin:0 14px 8px;
+  padding:10px 14px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.rpt-sec-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.07em;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+.rpt-status-row{ margin-bottom:10px; }
+.rpt-status{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.5;
+}
+.rpt-status.ok{ color:#2f9e63; }
+.rpt-status.err{ color:#d24343; }
+.rpt-btn-row{ display:flex; gap:8px; }
+.rpt-btn-row .btn{ flex:1; padding:10px; font-size:12px; }
+.rpt-check-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  color:var(--muted);
+  padding:5px 0;
+  border-bottom:1px solid var(--panel-border);
+}
+.rpt-check-row:last-child{ border:none; }
+.rpt-check-ic{
+  font-size:14px;
+  width:18px;
+  text-align:center;
+  color:var(--muted);
+  flex-shrink:0;
+}
+.rpt-check-row.ready{ color:var(--ink); }
+.rpt-check-row.ready .rpt-check-ic{ color:#2f9e63; }
+
 /* ---------- Sun Path Diagram ---------- */
 .sp-card{
   margin:0 14px 8px;
@@ -1988,6 +2034,42 @@ body{
     </div>
   </section>
 
+  <!-- ============ SITE REPORT ============ -->
+  <section class="screen" id="screen-report">
+    <div class="screen-title" style="margin:6px 14px 8px;">⊟ Site Report</div>
+
+    <!-- Status / generate card -->
+    <div class="rpt-card">
+      <div class="rpt-sec-label">Generate A4 PDF Report</div>
+      <div class="rpt-status-row">
+        <div class="rpt-status" id="rptStatus">Tap Generate to build your site report. GPS and PSH data must be loaded first.</div>
+      </div>
+      <div class="rpt-btn-row">
+        <button class="btn primary" id="rptGenerateBtn">Generate Report</button>
+        <button class="btn" id="rptPrintBtn" style="display:none;">Print / Save PDF</button>
+      </div>
+    </div>
+
+    <!-- Data checklist -->
+    <div class="rpt-card">
+      <div class="rpt-sec-label">Data included in report</div>
+      <div class="rpt-check-row" id="rptCheckGps"><span class="rpt-check-ic">○</span><span>GPS location &amp; coordinates</span></div>
+      <div class="rpt-check-row" id="rptCheckSun"><span class="rpt-check-ic">○</span><span>Sun times &amp; azimuths (today)</span></div>
+      <div class="rpt-check-row" id="rptCheckSolar"><span class="rpt-check-ic">○</span><span>Solar panel monthly recommendations</span></div>
+      <div class="rpt-check-row" id="rptCheckPsh"><span class="rpt-check-ic">○</span><span>NASA POWER peak sun hours</span></div>
+      <div class="rpt-check-row" id="rptCheckShadow"><span class="rpt-check-ic">○</span><span>Shadow analysis (key times)</span></div>
+      <div class="rpt-check-row" id="rptCheckForecast"><span class="rpt-check-ic">○</span><span>7-day sun times forecast</span></div>
+      <div class="rpt-check-row" id="rptCheckDecl"><span class="rpt-check-ic">○</span><span>Magnetic declination (WMM-2025)</span></div>
+    </div>
+
+    <div class="note-small" style="margin:0 14px 12px;">
+      Report opens in a new tab formatted for A4 printing. Use browser Print → Save as PDF. Works on both Android and iOS.
+    </div>
+
+    <!-- Hidden report container rendered by JS -->
+    <div id="rptContainer" style="display:none;"></div>
+  </section>
+
   <!-- ============ LUX READER ============ -->
   <section class="screen" id="screen-lux">
     <div class="screen-title">◉ Lux Reader</div>
@@ -2049,6 +2131,7 @@ body{
     <button class="navbtn" data-screen="psh"><span class="ic">◈</span>PSH</button>
     <button class="navbtn" data-screen="sunpath"><span class="ic">⊙</span>Path</button>
     <button class="navbtn" data-screen="shadow"><span class="ic">◧</span>Shadow</button>
+    <button class="navbtn" data-screen="report"><span class="ic">⊟</span>Report</button>
     <button class="navbtn" data-screen="lux"><span class="ic">◉</span>Lux</button>
     <button class="navbtn" data-screen="settings"><span class="ic">⚙</span>Settings</button>
   </nav>
@@ -5614,6 +5697,294 @@ document.getElementById('solarResetMonth').addEventListener('click', ()=>{ solar
 
 
 
+// ---------- Site Report ----------
+(function(){
+
+  function checkItem(id, ready){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle('ready', ready);
+    el.querySelector('.rpt-check-ic').textContent = ready ? '✓' : '○';
+  }
+
+  function updateChecklist(){
+    checkItem('rptCheckGps',      state.lat !== null);
+    checkItem('rptCheckSun',      state.today !== null);
+    checkItem('rptCheckSolar',    state.lat !== null);
+    checkItem('rptCheckPsh',      window.pshData !== null && window.pshData !== undefined);
+    checkItem('rptCheckShadow',   state.lat !== null && typeof SunCalc !== 'undefined');
+    checkItem('rptCheckForecast', state.forecastDays && state.forecastDays.length > 0);
+    checkItem('rptCheckDecl',     state.declination !== null);
+  }
+
+  // Shadow table: compute key times for today
+  function buildShadowRows(height){
+    if(!state.lat || typeof SunCalc === 'undefined') return '';
+    const h = height || 10;
+    const DEG = Math.PI/180;
+    const today = new Date();
+    const hours = [7,9,11,13,15,17,19];
+    let rows = '';
+    let noonTime = null, noonAlt = -999;
+
+    // Find solar noon
+    const times = SunCalc.getTimes(today, state.lat, state.lon);
+    noonTime = times.solarNoon;
+
+    const testTimes = hours.map(hr => {
+      const d = new Date(today);
+      d.setHours(hr,0,0,0);
+      return d;
+    });
+    testTimes.push(noonTime);
+    testTimes.sort((a,b)=>a-b);
+
+    for(const t of testTimes){
+      const pos = SunCalc.getPosition(t, state.lat, state.lon);
+      const alt = pos.altitude/DEG;
+      const az  = (pos.azimuth/DEG+180+360)%360;
+      if(alt <= 0.5) continue;
+      const len = h/Math.tan(pos.altitude);
+      const shadAz = (az+180)%360;
+      const tipN = len*Math.cos(shadAz*DEG);
+      const tipE = len*Math.sin(shadAz*DEG);
+      const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      const dir = dirs[Math.round(shadAz/22.5)%16];
+      const isNoon = Math.abs(t - noonTime) < 60000;
+      const timeStr = fmtTime(t);
+      rows += `<tr${isNoon?' style="background:#e8f0fb;font-weight:700;"':''}>
+        <td>${timeStr}${isNoon?' (noon)':''}</td>
+        <td>${alt.toFixed(1)}°</td>
+        <td>${az.toFixed(1)}°</td>
+        <td>${len>999?'>999':len.toFixed(1)} m</td>
+        <td>${shadAz.toFixed(0)}° ${dir}</td>
+        <td>${tipN>=0?'+':''}${tipN.toFixed(1)} m</td>
+        <td>${tipE>=0?'+':''}${tipE.toFixed(1)} m</td>
+      </tr>`;
+    }
+    return rows;
+  }
+
+  // Forecast rows
+  function buildForecastRows(){
+    if(!state.forecastDays || !state.forecastDays.length) return '<tr><td colspan="7">No forecast data — return to Home page to load</td></tr>';
+    return state.forecastDays.map((d,i) => {
+      const date = d.date;
+      const dayName = date.toLocaleDateString(undefined,{weekday:'short'});
+      const dateStr = date.getDate()+' '+ date.toLocaleDateString(undefined,{month:'short'})+' '+date.getFullYear();
+      const hl = i===0 ? ' style="background:#e8f0fb;font-weight:700;"' : '';
+      const dayMs = d.sunset - d.sunrise;
+      const hrs = Math.floor(dayMs/3600000);
+      const mins = Math.round((dayMs%3600000)/60000);
+      return `<tr${hl}>
+        <td>${dateStr}</td><td>${dayName}</td>
+        <td>${fmtTime(d.sunrise)}</td><td>${d.sunriseAz.toFixed(1)}°</td>
+        <td>${fmtTime(d.sunset)}</td><td>${d.sunsetAz.toFixed(1)}°</td>
+        <td>${hrs}h ${mins}m</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // PSH bars
+  function buildPshBars(){
+    const data = window.pshData;
+    if(!data) return '<p style="color:#999;font-size:8pt;">PSH data not loaded — visit PSH tab and tap Fetch first.</p>';
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const avg = data.reduce((a,b)=>a+b,0)/data.length;
+    const max = Math.max(...data), min = Math.min(...data);
+    const stats = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:7px;">
+      <div style="border:1px solid #ddd;padding:5px 6px;background:#f8f9fb;border-radius:2px;"><div style="font-size:6.5pt;color:#888;text-transform:uppercase;">Annual Average</div><div style="font-size:10pt;font-weight:700;color:#0d2a4a;font-family:monospace;">${avg.toFixed(2)} PSH</div><div style="font-size:6.5pt;color:#666;">kWh/m²/day</div></div>
+      <div style="border:1px solid #ddd;padding:5px 6px;background:#f8f9fb;border-radius:2px;"><div style="font-size:6.5pt;color:#888;text-transform:uppercase;">Best Month</div><div style="font-size:10pt;font-weight:700;color:#0d2a4a;font-family:monospace;">${months[data.indexOf(max)]} · ${max.toFixed(2)}</div><div style="font-size:6.5pt;color:#666;">kWh/m²/day</div></div>
+      <div style="border:1px solid #ddd;padding:5px 6px;background:#f8f9fb;border-radius:2px;"><div style="font-size:6.5pt;color:#888;text-transform:uppercase;">Worst Month</div><div style="font-size:10pt;font-weight:700;color:#0d2a4a;font-family:monospace;">${months[data.indexOf(min)]} · ${min.toFixed(2)}</div><div style="font-size:6.5pt;color:#666;">kWh/m²/day</div></div>
+    </div>`;
+    const bars = data.map((v,i)=>{
+      const pct = (v/6*100).toFixed(0);
+      const color = v===max?'#1a7a2a':v===min?'#c03010':'#1a5fa5';
+      const marker = v===max?' ▲':v===min?' ▼':'';
+      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+        <span style="font-size:7pt;width:18px;text-align:right;font-family:monospace;color:#444;">${months[i]}</span>
+        <div style="flex:1;height:7px;background:#eee;border-radius:2px;"><div style="height:7px;border-radius:2px;background:${color};width:${pct}%;"></div></div>
+        <span style="font-size:7pt;width:42px;font-family:monospace;font-weight:700;color:#0d2a4a;">${v.toFixed(2)}${marker}</span>
+      </div>`;
+    }).join('');
+    return stats + bars;
+  }
+
+  // Solar monthly table rows
+  function buildSolarRows(){
+    const KL = [
+      {m:'January',t:30,az:180,f:'South',eff:121,elev:63.6},
+      {m:'February',t:20,az:180,f:'South',eff:108,elev:68.5},
+      {m:'March',t:5,az:180,f:'South',eff:101,elev:78.5},
+      {m:'April',t:10,az:0,f:'North',eff:102,elev:83.5},
+      {m:'May',t:20,az:0,f:'North',eff:110,elev:74.4},
+      {m:'June',t:25,az:0,f:'North',eff:116,elev:69.8},
+      {m:'July',t:25,az:0,f:'North',eff:114,elev:71.5},
+      {m:'August',t:15,az:0,f:'North',eff:105,elev:79.0},
+      {m:'September',t:0,az:null,f:'Any',eff:100,elev:89.9},
+      {m:'October',t:15,az:180,f:'South',eff:104,elev:78.5},
+      {m:'November',t:25,az:180,f:'South',eff:115,elev:68.5},
+      {m:'December',t:30,az:180,f:'South',eff:124,elev:63.6},
+    ];
+    const curMonth = new Date().getMonth();
+    return KL.map((d,i)=>{
+      const hl = i===curMonth ? ' style="background:#e8f0fb;font-weight:700;"':'';
+      const cur = i===curMonth ? ' ← current':'';
+      return `<tr${hl}><td>${d.m}${cur}</td><td>${d.t}°</td><td>${d.f}</td><td>${d.az===null?'—':d.az+'°'}</td><td>${d.eff}%</td><td>${d.elev}°</td></tr>`;
+    }).join('');
+  }
+
+  function generateReport(){
+    const btn = document.getElementById('rptGenerateBtn');
+    const printBtn = document.getElementById('rptPrintBtn');
+    const status = document.getElementById('rptStatus');
+
+    if(!state.lat || !state.today){
+      status.className='rpt-status err';
+      status.textContent = '⚠ GPS location not available. Return to Home and allow location access first.';
+      return;
+    }
+
+    status.className='rpt-status';
+    status.textContent = 'Building report…';
+    btn.disabled = true;
+
+    const now = new Date();
+    const genTime = now.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})+', '+fmtTime(now)+' MYT';
+    const refNum = 'SF-'+now.getFullYear().toString().slice(-2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-001';
+    const lat = state.lat.toFixed(4);
+    const lon = state.lon.toFixed(4);
+    const gpsAcc = state.gpsAccuracyMeters ? '±'+Math.round(state.gpsAccuracyMeters)+' m' : '-- m';
+    const decl = state.declination !== null ? (state.declination>=0?'+':'')+state.declination.toFixed(2)+'° '+(state.declination>=0?'E':'W') : '--';
+    const riseTime = fmtTime(state.today.sunrise);
+    const setTime  = fmtTime(state.today.sunset);
+    const riseAz   = state.today.sunriseAz.toFixed(1);
+    const setAz    = state.today.sunsetAz.toFixed(1);
+    const noonTimes = SunCalc.getTimes(now, state.lat, state.lon);
+    const noonPos   = SunCalc.getPosition(noonTimes.solarNoon, state.lat, state.lon);
+    const noonAlt   = (noonPos.altitude*180/Math.PI).toFixed(1);
+    const noonAz    = ((noonPos.azimuth*180/Math.PI+180+360)%360).toFixed(1);
+    const noonTime  = fmtTime(noonTimes.solarNoon);
+    const dayMs     = state.today.sunset - state.today.sunrise;
+    const dayHrs    = Math.floor(dayMs/3600000);
+    const dayMins   = Math.round((dayMs%3600000)/60000);
+    const dateStr   = now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+    const CSS = `*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:8.5pt;color:#222;background:#eee;padding:16px;}
+.page{width:794px;min-height:1123px;background:#fff;padding:52px 56px;box-shadow:0 4px 20px rgba(0,0,0,0.3);margin:0 auto 24px;display:flex;flex-direction:column;}
+.rh{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:7px;border-bottom:2.5px solid #0d2a4a;margin-bottom:10px;}
+.rl{}.rlogo{font-size:13pt;font-weight:700;color:#0d2a4a;}.rsub{font-size:7pt;color:#666;margin-top:2px;}
+.rr{text-align:right;font-size:7pt;color:#555;line-height:1.8;}
+.rtitle{font-size:10pt;font-weight:700;color:#0d2a4a;text-transform:uppercase;letter-spacing:0.08em;text-align:center;margin-bottom:10px;padding:4px 0;border-bottom:1px solid #ccc;}
+.sec{margin-bottom:10px;}.stt{font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#fff;background:#0d2a4a;padding:3px 7px;margin-bottom:6px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:4px;}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;}
+.dc{border:1px solid #ddd;border-radius:2px;padding:5px 6px;background:#f8f9fb;}
+.dl{font-size:6.5pt;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:2px;}
+.dv{font-size:10pt;font-weight:700;color:#0d2a4a;font-family:monospace;}
+.ds{font-size:6.5pt;color:#666;margin-top:1px;}
+table{width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:5px;}
+th{background:#0d2a4a;color:#fff;padding:3px 5px;text-align:left;font-size:7pt;}
+td{padding:3px 5px;border-bottom:1px solid #eee;font-family:monospace;}
+tr:nth-child(even) td{background:#f5f7fb;}
+.disc{font-size:6.5pt;color:#999;text-align:center;margin-top:6px;line-height:1.5;}
+.sp{flex:1;}
+.rf{padding-top:5px;border-top:1.5px solid #0d2a4a;display:flex;justify-content:space-between;align-items:center;font-size:7pt;color:#555;}
+.rb{font-weight:700;color:#0d2a4a;}
+.pn{background:#0d2a4a;color:#fff;padding:2px 7px;border-radius:10px;font-size:7pt;}
+.nb{border:1px solid #ccc;padding:6px;min-height:40px;font-size:7pt;color:#bbb;line-height:2.4;}
+@media print{body{background:#fff;padding:0;}  .page{box-shadow:none;margin:0;page-break-after:always;}}`;
+
+    const FOOTER1 = `<div class="rf"><div><span class="rb">Sun Finder PWA</span> · Solar Site Assessment · ${lat}°, ${lon}° · ${genTime}</div><div class="pn">Page 1 of 2</div></div>`;
+    const FOOTER2 = `<div class="rf"><div><span class="rb">Sun Finder PWA</span> · Solar Site Assessment · ${lat}°, ${lon}° · ${genTime}</div><div class="pn">Page 2 of 2</div></div>`;
+    const HDR2 = `<div class="rh"><div><div class="rlogo">☀ Sun Finder</div><div class="rsub">Solar Site Assessment Report</div></div><div class="rr"><strong>Generated:</strong> ${genTime}<br><strong>Ref:</strong> ${refNum}</div></div>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sun Finder Site Report — ${genTime}</title><style>${CSS}</style></head><body>
+<div class="page">
+  <div class="rh"><div><div class="rlogo">☀ Sun Finder</div><div class="rsub">Solar Site Assessment Report</div></div><div class="rr"><strong>Generated:</strong> ${genTime}<br><strong>App:</strong> Sun Finder PWA v1.0<br><strong>Ref:</strong> ${refNum}</div></div>
+  <div class="rtitle">Solar Site Assessment Report</div>
+  <div class="sec"><div class="stt">1. Site Information</div>
+    <div class="g3">
+      <div class="dc"><div class="dl">Latitude</div><div class="dv">${lat}° N</div><div class="ds">Pekan / Malaysia region</div></div>
+      <div class="dc"><div class="dl">Longitude</div><div class="dv">${lon}° E</div><div class="ds">MYT (UTC+8)</div></div>
+      <div class="dc"><div class="dl">GPS Accuracy</div><div class="dv">${gpsAcc}</div><div class="ds">${state.gpsAccuracyMeters<=30?'Good':state.gpsAccuracyMeters<=100?'Weak':'Poor'}</div></div>
+      <div class="dc"><div class="dl">Assessment Date</div><div class="dv">${dateStr}</div><div class="ds">&nbsp;</div></div>
+      <div class="dc"><div class="dl">Mag. Declination</div><div class="dv">${decl}</div><div class="ds">NOAA WMM-2025</div></div>
+      <div class="dc"><div class="dl">Engineer</div><div class="dv" style="font-size:8pt;border-bottom:1px solid #aaa;padding-bottom:2px;">&nbsp;</div><div class="ds">Signature / Name</div></div>
+    </div>
+  </div>
+  <div class="sec"><div class="stt">2. Sun Times — Assessment Day</div>
+    <div class="g3">
+      <div class="dc"><div class="dl">Sunrise</div><div class="dv">${riseTime}</div><div class="ds">Azimuth ${riseAz}°</div></div>
+      <div class="dc"><div class="dl">Solar Noon</div><div class="dv">${noonTime}</div><div class="ds">Alt ${noonAlt}° · Az ${noonAz}°</div></div>
+      <div class="dc"><div class="dl">Sunset</div><div class="dv">${setTime}</div><div class="ds">Azimuth ${setAz}°</div></div>
+      <div class="dc"><div class="dl">Day Length</div><div class="dv">${dayHrs}h ${dayMins}m</div><div class="ds">Available sun hours</div></div>
+      <div class="dc"><div class="dl">Max Solar Elevation</div><div class="dv">${noonAlt}°</div><div class="ds">At solar noon</div></div>
+      <div class="dc"><div class="dl">Sun Direction</div><div class="dv">${parseFloat(noonAz)<180?'North':'South'}</div><div class="ds">At solar noon</div></div>
+    </div>
+  </div>
+  <div class="sec"><div class="stt">3. Solar Panel Orientation — Monthly Recommendations</div>
+    <table><thead><tr><th>Month</th><th>Tilt β</th><th>Face Direction</th><th>Azimuth γ</th><th>Est. Efficiency vs Flat</th><th>Solar Noon Altitude</th></tr></thead>
+    <tbody>${buildSolarRows()}</tbody></table>
+    <div class="g2">
+      <div class="dc"><div class="dl">Best fixed tilt (full year)</div><div class="dv">2°</div><div class="ds">For permanently mounted panels</div></div>
+      <div class="dc"><div class="dl">Calculation model</div><div class="dv" style="font-size:8pt;">Clear-sky geometric</div><div class="ds">Pre-verified for this region</div></div>
+    </div>
+  </div>
+  <div class="disc">⚠ Efficiency values are clear-sky geometric estimates. Does not account for cloud cover, shading, soiling or panel degradation. Use Section 4 NASA POWER PSH data for yield calculations.</div>
+  <div class="sp"></div>${FOOTER1}
+</div>
+<div class="page">
+  ${HDR2}
+  <div class="sec"><div class="stt">4. Peak Sun Hours — NASA POWER 22-yr Climatology (All-Sky, Includes Cloud Cover)</div>${buildPshBars()}</div>
+  <div class="sec"><div class="stt">5. Shadow Analysis — Key Times (Object Height: 10 m)</div>
+    <table><thead><tr><th>Time (MYT)</th><th>Sun Elevation</th><th>Sun Azimuth</th><th>Shadow Length</th><th>Shadow Direction</th><th>N offset</th><th>E offset</th></tr></thead>
+    <tbody>${buildShadowRows(10)}</tbody></table>
+  </div>
+  <div class="sec"><div class="stt">6. 7-Day Sun Times Forecast</div>
+    <table><thead><tr><th>Date</th><th>Day</th><th>Sunrise (MYT)</th><th>Rise Az</th><th>Sunset (MYT)</th><th>Set Az</th><th>Day Length</th></tr></thead>
+    <tbody>${buildForecastRows()}</tbody></table>
+  </div>
+  <div class="sec"><div class="stt">7. Site Notes</div><div class="nb">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</div></div>
+  <div class="disc">⚠ PSH from NASA POWER 22-yr climatology (ALLSKY_SFC_SW_DWN). Shadow from clear-sky geometric model (SunCalc). All times MYT (UTC+8). Magnetic declination from NOAA WMM-2025. For reference only — verify on site before design.</div>
+  <div class="sp"></div>${FOOTER2}
+</div>
+</body></html>`;
+
+    const blob = new Blob([html], {type:'text/html'});
+    const url  = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+
+    status.className = 'rpt-status ok';
+    status.textContent = '✓ Report opened in new tab. Use browser Print → Save as PDF for A4 output.';
+    btn.disabled = false;
+    if(printBtn) printBtn.style.display = '';
+  }
+
+  document.getElementById('rptGenerateBtn').addEventListener('click', generateReport);
+
+  // Update checklist when tab is opened
+  document.querySelectorAll('.navbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.dataset.screen === 'report') updateChecklist();
+    });
+  });
+
+  // Also update when GPS resolves
+  const _origCSD = window._rptGpsHooked;
+  if(!_origCSD){
+    window._rptGpsHooked = true;
+    const origCSD = window.computeSunData || computeSunData;
+    window.computeSunData = function(){
+      origCSD.apply(this, arguments);
+      updateChecklist();
+    };
+  }
+
+  window.updateReportChecklist = updateChecklist;
+})();
+
 // ---------- Sun Path Diagram ----------
 (function(){
   const DEG = Math.PI/180;
@@ -6025,6 +6396,7 @@ async function pshFetch(){
         }
         if(data.some(v=>isNaN(v))) throw new Error('NaN in data — unexpected key format. Keys: '+JSON.stringify(Object.keys(param).slice(0,5)));
         pshData = data;
+        window.pshData = data; // expose globally for report
         pshBuildChart(data);
         pshUpdateStats(data);
         document.getElementById('pshSourceBadge').style.display = '';
