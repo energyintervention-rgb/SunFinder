@@ -5490,11 +5490,14 @@ function updateSolarDiagram(d){
   const bx=160, by=168, L=95, sunDist=115;
   const facingNorth = (d.az === 0 || d.az < 90 || d.az > 270);
   const dir = facingNorth ? 1 : -1;
+  // Offset base 5px away from Zenith so the 9px stroke does not bleed across it
+  const basePad = 5;
+  const pbx = bx + dir * basePad;
 
   // Panel endpoint
-  const px = bx + dir*L*Math.cos(d.tilt*DEG);
+  const px = pbx + dir*L*Math.cos(d.tilt*DEG);
   const py = by - L*Math.sin(d.tilt*DEG);
-  const mx = (bx+px)/2, my = (by+py)/2; // midpoint
+  const mx = (pbx+px)/2, my = (by+py)/2; // midpoint
 
   // Panel normal — perpendicular, always pointing skyward
   // Panel vector: (px-bx, py-by). Normal (CCW 90°): (-(py-by), px-bx)
@@ -5552,8 +5555,8 @@ function updateSolarDiagram(d){
   }
 
   // Panel
-  setLine('dPanel', bx, by, px, py);
-  setLine('dPanelShine', bx, by, px, py);
+  setLine('dPanel', pbx, by, px, py);
+  setLine('dPanelShine', pbx, by, px, py);
 
   // Normal arrow
   setLine('dNormal', mx, my, nx2, ny2);
@@ -5567,11 +5570,11 @@ function updateSolarDiagram(d){
 
   // β arc
   const bArcR=38;
-  const bex=bx+dir*bArcR*Math.cos(d.tilt*DEG);
+  const bex=pbx+dir*bArcR*Math.cos(d.tilt*DEG);
   const bey=by-bArcR*Math.sin(d.tilt*DEG);
-  setAttr('dBetaArc','d',`M ${bx},${by} A ${bArcR},${bArcR} 0 0,${facingNorth?1:0} ${bex.toFixed(1)},${bey.toFixed(1)}`);
+  setAttr('dBetaArc','d',`M ${pbx},${by} A ${bArcR},${bArcR} 0 0,${facingNorth?1:0} ${bex.toFixed(1)},${bey.toFixed(1)}`);
   setText('dBetaLabel',`β=${d.tilt}°`);
-  setAttr('dBetaLabel','x',(bx+dir*18).toFixed(1));
+  setAttr('dBetaLabel','x',(pbx+dir*18).toFixed(1));
   setAttr('dBetaLabel','y',(by+11).toFixed(1));
 
   // θ and Optimum labels — place on the opposite side from sun
