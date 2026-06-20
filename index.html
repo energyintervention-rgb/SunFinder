@@ -1778,8 +1778,7 @@ function requestLocation(){
       if (skyCoords) skyCoords.textContent = 'Location unavailable';
       document.getElementById('accuracyPill').textContent = 'GPS: error';
       document.getElementById('accuracyPill').className = 'accuracy-pill acc-bad';
-      document.getElementById('dataNote').textContent =
-        'Could not get your location (' + err.message + '). Sunrise/sunset cannot be calculated without coordinates — this is not a guessed fallback.';
+      // dataNote removed from DOM — error shown via GPS pill only
     },
     { enableHighAccuracy:true, timeout:10000, maximumAge:60000 }
   );
@@ -1790,8 +1789,7 @@ document.getElementById('refreshBtn').addEventListener('click', requestLocation)
 function computeSunData(){
   if (state.lat === null || state.lon === null) return;
   if (typeof SunCalc === 'undefined') {
-    document.getElementById('dataNote').textContent =
-      'SunCalc library failed to load (no network access to CDN) — cannot compute real sun times.';
+    // SunCalc unavailable — silent fail, GPS pill already shows status
     return;
   }
 
