@@ -82,7 +82,7 @@ body{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:18px 20px 8px;
+  padding:10px 16px 4px;
 }
 .brand{
   display:flex;
@@ -105,7 +105,7 @@ body{
 }
 
 /* ---------- screens ---------- */
-.screen{display:none;flex:1;flex-direction:column;padding-bottom:88px;}
+.screen{display:none;flex:1;flex-direction:column;padding-bottom:72px;}
 .screen.active{display:flex;}
 
 /* ---------- location card ---------- */
@@ -138,8 +138,8 @@ body{
 /* ---------- compass dial ---------- */
 .compass-wrap{
   position:relative;
-  width:300px;height:300px;
-  margin:6px auto 18px;
+  width:240px;height:240px;
+  margin:2px auto 6px;
   display:flex;align-items:center;justify-content:center;
   padding-top:0;
 }
@@ -158,7 +158,7 @@ body{
   left:50%;top:6px;
   width:2px;height:10px;
   background:var(--muted);
-  transform-origin:1px 144px; /* 144px = dial radius (150) minus tick top offset (6) */
+  transform-origin:1px 114px;
   opacity:0.5;
 }
 .tick.major{height:14px;width:2px;opacity:0.8;}
@@ -185,8 +185,8 @@ body{
 /* Long North arrow replacing the old thin needle */
 .needle{ display:none; }
 .north-arrow{
-  width:44px;
-  height:140px;
+  width:36px;
+  height:112px;
 }
 
 /* Static STOP triangle — outside the rim at top, pointing UP away from dial */
@@ -304,9 +304,9 @@ body{
 
 .compass-caption{
   text-align:center;
-  font-size:12px;
+  font-size:11px;
   color:var(--muted);
-  margin-bottom:6px;
+  margin-bottom:4px;
 }
 
 /* Floating compass enable button — sits centered on the dial,
@@ -314,17 +314,17 @@ body{
 .compass-enable-btn{
   position:absolute;
   left:50%;top:50%;
-  transform:translate(-50%, 30px);
+  transform:translate(-50%, 22px);
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:6px;
+  gap:4px;
   background:var(--panel);
   border:1px solid var(--sunrise);
   border-radius:var(--radius-sm);
-  padding:10px 18px;
+  padding:7px 14px;
   font-family:var(--display);
-  font-size:12px;
+  font-size:11px;
   font-weight:600;
   color:var(--sunrise);
   cursor:pointer;
@@ -333,7 +333,7 @@ body{
   transition:opacity 0.3s ease;
 }
 .compass-enable-btn .compass-enable-icon{
-  font-size:20px;
+  font-size:16px;
 }
 .compass-enable-btn.hidden{
   display:none;
@@ -378,8 +378,8 @@ body{
 
 /* ---------- always-on sky view + date/time picker ---------- */
 .sky-card{
-  margin:4px 20px 16px;
-  padding:14px;
+  margin:2px 14px 6px;
+  padding:10px;
   border-radius:var(--radius);
   background:var(--panel);
   border:1px solid var(--panel-border);
@@ -387,11 +387,11 @@ body{
 }
 .sky-view{
   position:relative;
-  height:170px;
+  height:112px;
   border-radius:var(--radius-sm);
   overflow:hidden;
   background:#0d1b33;
-  margin-bottom:12px;
+  margin-bottom:10px;
 }
 .sky-horizon-line{
   position:absolute;
@@ -498,13 +498,13 @@ body{
 /* ---------- today summary ---------- */
 .today-grid{
   display:flex;
-  gap:12px;
-  margin:6px 20px 8px;
+  gap:10px;
+  margin:4px 14px 6px;
 }
 .today-card{
   flex:1;
   border-radius:var(--radius-sm);
-  padding:14px;
+  padding:10px 12px;
   background:var(--panel);
   border:1px solid var(--panel-border);
   backdrop-filter:blur(8px);
@@ -522,7 +522,7 @@ body{
 .today-card .time{
   font-family:var(--mono);
   font-weight:700;
-  font-size:22px;
+  font-size:20px;
 }
 .today-card .az{
   font-family:var(--mono);
@@ -1117,8 +1117,7 @@ body{
         <div class="az" id="sunsetAz">Az --°</div>
       </div>
     </div>
-    <div class="align-banner" id="homeAlignBanner" style="display:none;"></div>
-    <div class="note-small" id="dataNote">Calculations run locally using the SunCalc astronomical library once your location is known. No network request is needed for this math.</div>
+    <div class="align-banner" id="homeAlignBanner" style="display:none;margin:4px 14px;"></div>
   </section>
 
   <!-- ============ FORECAST ============ -->
@@ -1901,9 +1900,9 @@ function positionMarkers(){
   document.getElementById('sunsetMarker').style.transform = `rotate(${sunsetAngle}deg)`;
 
   document.getElementById('sunriseMarker').querySelector('.dot-ring').style.transform =
-    `translate(-65px,-144px) rotate(${-sunriseAngle}deg)`;
+    `translate(-65px,-110px) rotate(${-sunriseAngle}deg)`;
   document.getElementById('sunsetMarker').querySelector('.dot-ring').style.transform =
-    `translate(-65px,-144px) rotate(${-sunsetAngle}deg)`;
+    `translate(-65px,-110px) rotate(${-sunsetAngle}deg)`;
 
   // Preview marker still needs to update with heading on the compass dial
   if (state.previewResult) {
@@ -2322,7 +2321,7 @@ function positionPreviewMarker(){
   const angle = state.previewResult.azimuth - heading;
   marker.style.display = 'block';
   marker.style.transform = `rotate(${angle}deg)`;
-  marker.querySelector('.dot-ring').style.transform = `translate(-65px,-144px) rotate(${-angle}deg)`;
+  marker.querySelector('.dot-ring').style.transform = `translate(-65px,-110px) rotate(${-angle}deg)`;
   document.getElementById('previewAzLabel').textContent = fmtAz(state.previewResult.azimuth);
 }
 
