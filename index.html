@@ -5499,15 +5499,14 @@ function updateSolarDiagram(d){
   const py = by - L*Math.sin(d.tilt*DEG);
   const mx = (pbx+px)/2, my = (by+py)/2; // midpoint
 
-  // Panel normal — perpendicular, always pointing skyward
-  // Panel vector: (px-bx, py-by). Normal (CCW 90°): (-(py-by), px-bx)
-  const pvx=px-bx, pvy=py-by;
-  let nnx=-pvy, nny=pvx;
-  // Ensure normal points upward (nny should be negative in SVG coords)
-  if(nny > 0){ nnx=-nnx; nny=-nny; }
-  const nLen=Math.sqrt(nnx*nnx+nny*nny);
+  // Panel normal — points perpendicular to panel toward the TOP face (facing side)
+  // For a panel tilted β° toward direction dir:
+  // normal = (dir*sin(β), -cos(β))  — directly from geometry, no rotation needed
+  // This correctly points toward the facing side (right for north, left for south)
+  const pvx=px-pbx, pvy=py-by;
+  const nnxN = dir * Math.sin(d.tilt*DEG);
+  const nnyN = -Math.cos(d.tilt*DEG);
   const normLen=42;
-  const nnxN=nnx/nLen, nnyN=nny/nLen;
   const nx2=mx+normLen*nnxN, ny2=my+normLen*nnyN;
 
   // Sun center — on the facing side at real elevation
