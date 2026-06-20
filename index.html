@@ -936,6 +936,131 @@ body{
 }
 .permission-box p{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
 
+/* ---------- Lux Reader ---------- */
+.lux-main-card{
+  margin:0 20px 14px;
+  padding:24px 20px;
+  border-radius:var(--radius);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+  text-align:center;
+}
+.lux-value-wrap{
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+.lux-number{
+  font-family:var(--mono);
+  font-weight:700;
+  font-size:64px;
+  color:var(--sunrise);
+  line-height:1;
+  letter-spacing:-2px;
+  transition:color 0.4s ease;
+}
+.lux-unit{
+  font-family:var(--mono);
+  font-size:18px;
+  color:var(--muted);
+}
+.lux-label{
+  font-size:16px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:20px;
+  min-height:24px;
+}
+.lux-bar-wrap{ margin-top:4px; }
+.lux-bar-bg{
+  height:10px;
+  border-radius:5px;
+  background:rgba(255,255,255,0.08);
+  overflow:hidden;
+  margin-bottom:6px;
+}
+.lux-bar-fill{
+  height:10px;
+  border-radius:5px;
+  background:linear-gradient(90deg,#1a3fa0,#3a6fe0,#ff9d3c,#ffffff);
+  transition:width 0.4s ease;
+  max-width:100%;
+}
+.lux-bar-labels{
+  display:flex;
+  justify-content:space-between;
+  font-family:var(--mono);
+  font-size:9px;
+  color:var(--muted);
+  opacity:0.7;
+}
+.lux-control-card{
+  margin:0 20px 14px;
+  padding:16px 20px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.lux-status{
+  font-size:13px;
+  color:var(--muted);
+  flex:1;
+  line-height:1.4;
+}
+.lux-btn-row{
+  display:flex;
+  gap:8px;
+  flex-shrink:0;
+}
+.lux-btn-row .btn{
+  padding:10px 18px;
+  font-size:13px;
+}
+.lux-scale-card{
+  margin:0 20px 14px;
+  padding:16px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  backdrop-filter:blur(8px);
+}
+.lux-scale-title{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--muted);
+  margin-bottom:12px;
+}
+.lux-scale-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.lux-scale-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:12px;
+}
+.lux-scale-range{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--muted);
+  min-width:120px;
+}
+.lux-scale-desc{
+  color:var(--ink);
+  font-weight:500;
+}
+
 @media (prefers-reduced-motion: reduce){
   *{transition:none !important;animation:none !important;}
 }
@@ -1329,11 +1454,65 @@ body{
     </div>
   </section>
 
+  <!-- ============ LUX READER ============ -->
+  <section class="screen" id="screen-lux">
+    <div class="screen-title">◉ Lux Reader</div>
+
+    <!-- Main lux display card -->
+    <div class="lux-main-card">
+      <div class="lux-value-wrap">
+        <div class="lux-number" id="luxNumber">--</div>
+        <div class="lux-unit">lux</div>
+      </div>
+      <div class="lux-label" id="luxLabel">—</div>
+      <div class="lux-bar-wrap">
+        <div class="lux-bar-bg">
+          <div class="lux-bar-fill" id="luxBarFill" style="width:0%"></div>
+        </div>
+        <div class="lux-bar-labels">
+          <span>Dark</span><span>Indoor</span><span>Outdoor</span><span>Sun</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status / control card -->
+    <div class="lux-control-card">
+      <div class="lux-status" id="luxStatus">Tap Start to begin reading.</div>
+      <div class="lux-btn-row">
+        <button class="btn primary" id="luxStartBtn">Start</button>
+        <button class="btn" id="luxStopBtn" style="display:none;">Stop</button>
+      </div>
+    </div>
+
+    <!-- Lux scale reference card -->
+    <div class="lux-scale-card">
+      <div class="lux-scale-title">Lux scale reference</div>
+      <div class="lux-scale-list">
+        <div class="lux-scale-row"><span class="lux-scale-range">0.001 – 0.02</span><span class="lux-scale-desc">Starlight</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">0.02 – 0.3</span><span class="lux-scale-desc">Moonlight</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">0.3 – 10</span><span class="lux-scale-desc">Deep twilight</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">10 – 50</span><span class="lux-scale-desc">Civil twilight</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">50 – 200</span><span class="lux-scale-desc">Overcast dawn / dusk</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">200 – 400</span><span class="lux-scale-desc">Sunrise / Sunset</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">400 – 1,000</span><span class="lux-scale-desc">Overcast day</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">1,000 – 5,000</span><span class="lux-scale-desc">Full daylight (shade)</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">5,000 – 20,000</span><span class="lux-scale-desc">Cloudy outdoor</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">20,000 – 50,000</span><span class="lux-scale-desc">Hazy sunlight</span></div>
+        <div class="lux-scale-row"><span class="lux-scale-range">50,000 – 120,000</span><span class="lux-scale-desc">Direct sunlight</span></div>
+      </div>
+    </div>
+
+    <div class="note-small" style="margin:8px 20px 16px;">
+      ⚠ Reads from your device's ambient light sensor. Accuracy varies by phone hardware and sensor placement. Not a calibrated scientific instrument.
+    </div>
+  </section>
+
   <!-- ============ BOTTOM NAV ============ -->
   <nav class="bottomnav">
     <button class="navbtn active" data-screen="home"><span class="ic">⌖</span>Home</button>
     <button class="navbtn" data-screen="forecast"><span class="ic">☰</span>Forecast</button>
     <button class="navbtn" data-screen="solar"><span class="ic">◐</span>Solar</button>
+    <button class="navbtn" data-screen="lux"><span class="ic">◉</span>Lux</button>
     <button class="navbtn" data-screen="settings"><span class="ic">⚙</span>Settings</button>
   </nav>
 </div>
@@ -2709,6 +2888,121 @@ document.getElementById('solarResetMonth').addEventListener('click', ()=>{ solar
 
 
 
+
+// ---------- Lux Reader ----------
+let luxSensor = null;
+
+function luxClassify(lux){
+  if (lux < 0.02)    return { label:'Starlight',             color:'#4a6fa0' };
+  if (lux < 0.3)     return { label:'Moonlight',             color:'#6a7fa8' };
+  if (lux < 10)      return { label:'Deep twilight',         color:'#5a4a80' };
+  if (lux < 50)      return { label:'Civil twilight',        color:'#7a5a9a' };
+  if (lux < 200)     return { label:'Overcast dawn / dusk',  color:'#9a6a7a' };
+  if (lux < 400)     return { label:'Sunrise / Sunset',      color:'#cc7a40' };
+  if (lux < 1000)    return { label:'Overcast day',          color:'#cc9a40' };
+  if (lux < 5000)    return { label:'Full daylight (shade)', color:'#ddaa40' };
+  if (lux < 20000)   return { label:'Cloudy outdoor',        color:'#eebb50' };
+  if (lux < 50000)   return { label:'Hazy sunlight',         color:'#ffcc60' };
+  return               { label:'Direct sunlight',            color:'#ffffff' };
+}
+
+function luxBarPercent(lux){
+  // Log scale: 0.001→0%, 120000→100%
+  if (lux <= 0) return 0;
+  const logMin = Math.log10(0.001);
+  const logMax = Math.log10(120000);
+  const logVal = Math.log10(Math.max(0.001, lux));
+  return Math.min(100, Math.max(0, ((logVal - logMin) / (logMax - logMin)) * 100));
+}
+
+function updateLuxDisplay(lux){
+  const numEl  = document.getElementById('luxNumber');
+  const lblEl  = document.getElementById('luxLabel');
+  const barEl  = document.getElementById('luxBarFill');
+
+  if (!numEl) return;
+
+  const { label, color } = luxClassify(lux);
+  numEl.textContent = lux >= 1000
+    ? Math.round(lux).toLocaleString()
+    : lux >= 10
+      ? Math.round(lux)
+      : lux.toFixed(2);
+  numEl.style.color = color;
+  if (lblEl) lblEl.textContent = label;
+  if (barEl) barEl.style.width = luxBarPercent(lux) + '%';
+}
+
+function startLux(){
+  const statusEl  = document.getElementById('luxStatus');
+  const startBtn  = document.getElementById('luxStartBtn');
+  const stopBtn   = document.getElementById('luxStopBtn');
+
+  // Check API availability
+  if (typeof AmbientLightSensor === 'undefined'){
+    if (statusEl) statusEl.textContent =
+      '⚠ Ambient Light Sensor API is not available on this device or browser. ' +
+      'iOS Safari does not support this API (blocked by Apple since iOS 13). ' +
+      'On Android, use Chrome and ensure sensor permissions are granted.';
+    return;
+  }
+
+  try {
+    luxSensor = new AmbientLightSensor({ frequency: 2 }); // 2 readings/sec
+
+    luxSensor.onreading = () => {
+      updateLuxDisplay(luxSensor.illuminance);
+      if (statusEl) statusEl.textContent = 'Live reading from ambient light sensor.';
+    };
+
+    luxSensor.onerror = (e) => {
+      const msg = e.error ? e.error.message : 'Unknown error';
+      const name = e.error ? e.error.name : '';
+      let friendly = `Sensor error: ${msg}`;
+      if (name === 'NotAllowedError')
+        friendly = '⚠ Permission denied. Please allow sensor access in your browser settings.';
+      else if (name === 'NotReadableError')
+        friendly = '⚠ Sensor not available on this device. Your phone may not have an ambient light sensor.';
+      if (statusEl) statusEl.textContent = friendly;
+      stopLux();
+    };
+
+    luxSensor.start();
+
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn)  stopBtn.style.display  = '';
+    if (statusEl) statusEl.textContent = 'Starting sensor…';
+
+  } catch(e){
+    let friendly = `⚠ Could not start sensor: ${e.message}`;
+    if (e.name === 'SecurityError')
+      friendly = '⚠ Sensor access blocked. This page must be served over HTTPS and sensor permissions must be enabled.';
+    if (statusEl) statusEl.textContent = friendly;
+  }
+}
+
+function stopLux(){
+  if (luxSensor){
+    luxSensor.stop();
+    luxSensor = null;
+  }
+  const startBtn = document.getElementById('luxStartBtn');
+  const stopBtn  = document.getElementById('luxStopBtn');
+  const statusEl = document.getElementById('luxStatus');
+  if (startBtn) startBtn.style.display = '';
+  if (stopBtn)  stopBtn.style.display  = 'none';
+  if (statusEl) statusEl.textContent = 'Sensor stopped. Tap Start to read again.';
+}
+
+document.getElementById('luxStartBtn').addEventListener('click', startLux);
+document.getElementById('luxStopBtn').addEventListener('click', stopLux);
+
+// Stop sensor when navigating away from lux page
+document.querySelectorAll('.navbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if (btn.dataset.screen !== 'lux' && luxSensor) stopLux();
+  });
+});
 
 // ---------- init ----------
 drawTicks();
