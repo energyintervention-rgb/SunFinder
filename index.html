@@ -1297,6 +1297,36 @@ body{
     <div class="note-small" style="margin-bottom:8px;">
       Sun Finder uses real astronomical calculations (SunCalc library) for all sunrise, sunset and azimuth values. Compass heading uses your device's orientation sensor. No data is sent to any server — everything runs locally on your device.
     </div>
+
+    <div class="section-title">How calculations work</div>
+    <div class="settings-list">
+
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div class="stext"><span class="stitle">☀ Sunrise &amp; Sunset</span></div>
+        <div class="ssub" style="line-height:1.6;">Uses the <strong>SunCalc</strong> astronomical library (Vladimir Agafonkin). Calculates the exact moment the sun's upper limb crosses the horizon at −0.833° altitude, accounting for atmospheric refraction. Input: your GPS coordinates + current date.</div>
+      </div>
+
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div class="stext"><span class="stitle">⊕ Compass Azimuth</span></div>
+        <div class="ssub" style="line-height:1.6;">Sun azimuth is computed from <strong>SunCalc.getPosition()</strong> which returns the sun's hour angle and declination, converted to a compass bearing (0° = North, 90° = East). Accuracy depends on your GPS precision and device magnetometer quality.</div>
+      </div>
+
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div class="stext"><span class="stitle">◐ Solar Panel Advisor</span></div>
+        <div class="ssub" style="line-height:1.6;">Optimises panel tilt (β) and azimuth (γ) by maximising day-integrated clear-sky irradiance using the <strong>cos(θ) incidence formula</strong>. Includes airmass-weighted direct beam irradiance and isotropic diffuse sky contribution. Pre-verified monthly data for Malaysia (KL). Live optimiser for all other locations. <em>Clear-sky model only — does not account for clouds or haze.</em></div>
+      </div>
+
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div class="stext"><span class="stitle">🌐 Timezone Handling</span></div>
+        <div class="ssub" style="line-height:1.6;">All times displayed in your <strong>device's local timezone</strong> automatically. Solar optimiser uses a geometric UTC offset estimate (longitude ÷ 15) for day-sampling — accurate to ±30 min for most locations.</div>
+      </div>
+
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div class="stext"><span class="stitle">📍 Location</span></div>
+        <div class="ssub" style="line-height:1.6;">GPS coordinates from your device's <strong>Geolocation API</strong>. Coordinates are used only for local calculations and never transmitted to any server. Accuracy shown as the GPS error radius reported by your device.</div>
+      </div>
+
+    </div>
   </section>
 
   <!-- ============ BOTTOM NAV ============ -->
