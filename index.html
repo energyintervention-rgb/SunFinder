@@ -1232,10 +1232,10 @@ body{
         <text id="dElevLabel"   font-size="7.5" fill="#ff9d3c" font-family="monospace" opacity="0.55"/>
 
         <!-- Real sun: glow + corona rays + sphere -->
-        <circle id="dSunGlow" r="26" fill="url(#dGlowGrad)" filter="url(#dGlowF)"/>
+        <circle id="dSunGlow" r="20" fill="url(#dGlowGrad)" filter="url(#dGlowF)"/>
         <g id="dCorona" stroke="#ffcc44" stroke-width="1.5" stroke-linecap="round" opacity="0.65" filter="url(#dCoronaBlur)"/>
-        <circle id="dSun"  r="15" fill="url(#dSunGrad)"/>
-        <circle id="dSunRim" r="15" fill="none" stroke="#ff6600" stroke-width="0.8" opacity="0.35"/>
+        <circle id="dSun"  r="11" fill="url(#dSunGrad)"/>
+        <circle id="dSunRim" r="11" fill="none" stroke="#ff6600" stroke-width="0.8" opacity="0.35"/>
 
         <!-- Legend — box and items with movable x positions -->
         <rect id="dLegendBox" x="8" y="8" width="100" height="92" rx="4" fill="rgba(0,0,0,0.62)"/>
@@ -2501,7 +2501,7 @@ const solarState = { monthOffset: 0 };
 function updateSolarDiagram(d){
   const DEG = Math.PI/180;
   // ViewBox: 320×185. Ground y=168. Panel base at x=160 (exact center).
-  const bx=160, by=168, L=95, sunDist=85;
+  const bx=160, by=168, L=95, sunDist=115;
   const facingNorth = (d.az === 0 || d.az < 90 || d.az > 270);
   const dir = facingNorth ? 1 : -1;
 
@@ -2527,7 +2527,7 @@ function updateSolarDiagram(d){
 
   // Sun ray — from sun surface (r=15) toward midpoint
   const rayAngle=Math.atan2(my-sunY, mx-sunX);
-  const rsx=sunX+15*Math.cos(rayAngle), rsy=sunY+15*Math.sin(rayAngle);
+  const rsx=sunX+11*Math.cos(rayAngle), rsy=sunY+11*Math.sin(rayAngle);
 
   // Optimum ray — from along normal direction toward midpoint
   const optLen=52;
@@ -2552,7 +2552,7 @@ function updateSolarDiagram(d){
   setXY('dSunGlow', sunX, sunY);
   setXY('dSunRim', sunX, sunY);
   // Corona rays — 8 rays at 45° intervals, from sun surface outward
-  const sunR=15, rayInner=sunR+2, rayOuter=sunR+9;
+  const sunR=11, rayInner=sunR+2, rayOuter=sunR+7;
   const coronaEl=s('dCorona');
   if(coronaEl){
     let coronaSvg='';
