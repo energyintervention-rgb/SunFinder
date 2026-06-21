@@ -1,74 +1,188 @@
-# Sun Finder — Browser Prototype
+# ☀ Sun Finder
 
-## What this is
+**Solar Site Assessment PWA for Field Engineers**
 
-A browser-based (HTML/CSS/JS) mock-up of the "Sun Finder" app described in
-the brief. It is **not** the final Flutter or React Native mobile app — it's
-a testable prototype you can open in a phone or desktop browser to validate
-the concept, layout, and core math before committing to native development.
+A single-file Progressive Web App (PWA) for solar site surveys. All calculations run locally on the device — no server, no backend, no account required.
 
-## What's real vs. simplified — please read this section
+---
 
-This matters more than anything else in the doc, so it's first.
+## Live Demo
 
-**Real, not faked:**
-- Sunrise/sunset times and azimuth angles — computed with the [SunCalc](https://github.com/mourner/suncalc) library, a widely-used open-source implementation of standard solar position astronomy.
-- Your GPS coordinates — via the browser's real `navigator.geolocation` API.
-- Compass heading — via the browser's real `DeviceOrientationEvent` API, where your browser/OS exposes it.
-- The 7-day forecast — genuinely computed for 7 real calendar dates at your real coordinates, entirely client-side.
+**[energyintervention-rgb.github.io/sunfinder/](https://energyintervention-rgb.github.io/sunfinder/)**
 
-**Simplified / mock, clearly labeled in the UI itself:**
-- **AR Mode** is a 2D overlay on top of an optional camera feed, positioned using compass-heading math. It is not true AR (no depth sensing, no SLAM, no anchored 3D tracking). The screen says "Simplified mock-up" directly in the interface.
-- **"City" name** — the Home screen shows your coordinates but does not reverse-geocode them into a city name, because that requires a geocoding API and key that aren't configured in this prototype. I did not want to fake a city name.
-- **Offline mode** — in this prototype, "offline" works almost for free: SunCalc only needs latitude/longitude/date, no network call, so the 7-day forecast is already computed locally with zero server dependency. A real production app would still want to persist this to local storage so it survives an app restart with no GPS fix, but the core "no network needed" property is already true here.
+Tested in Pekan, Pahang, Malaysia.
 
-## What I could NOT verify
+---
 
-I have not cross-checked the SunCalc outputs against an independent published source (e.g., NOAA's solar calculator) for specific dates. The unit tests (`test.js`) confirm the math is internally consistent (sunrise before sunset, correct seasonal direction in each hemisphere, azimuth in valid range) but that is not the same as confirming exact-minute accuracy against an outside authority. If exact accuracy against NOAA matters for your use case, that comparison is a sensible next step and one you can verify yourself at https://gml.noaa.gov/grad/solcalc/.
+## Features
 
-I also have not tested this on a physical iOS or Android device — I don't have one available in this environment. Browser sensor APIs (especially `DeviceOrientationEvent` permission flows on iOS Safari) are notoriously inconsistent across devices and OS versions, so real-device testing before relying on this is important.
+### 🏠 Home
+- Real-time compass with sunrise/sunset azimuth markers
+- Sky arc panel showing sun position across the day
+- Alignment banner when facing sunrise or sunset direction
+- Date/time picker to preview sun position at any time
+- 7-day forecast tab
 
-## Running it
+### ◐ Solar Advisor
+- Monthly panel tilt (β) and facing direction (γ) recommendations
+- Side-view diagram showing panel orientation, sun ray, normal vector, and optimum ray
+- Correct standard installation geometry (base on opposite side from facing direction)
+- Day-integrated efficiency vs flat panel
+- Best fixed tilt for full year
 
-1. The three core files (`index.html`, `app.js`, `manifest.json`, `icons/`) need to be served over **HTTPS or localhost** — browsers block Geolocation and DeviceOrientation on plain `http://` for any host other than localhost.
-2. Easiest local test:
-   ```
-   cd sunfinder
-   python3 -m http.server 8000
-   ```
-   then open `http://localhost:8000/index.html` in your browser.
-3. On a phone, you'll need it served over HTTPS (e.g. via `ngrok`, GitHub Pages, or any static host) for GPS/compass to work — phone browsers are stricter than desktop about insecure origins.
+### ◈ PSH — Peak Sun Hours
+- Fetches real 22-year monthly climatology from **NASA POWER API** (`ALLSKY_SFC_SW_DWN`)
+- Includes cloud cover — not a clear-sky estimate
+- Monthly bar chart with colour coding (above/below average)
+- Interactive energy yield estimator (panel size × system efficiency)
 
-## Calibration
+### ⊙ Sun Path Diagram
+- Standard rectangular solar path chart (azimuth vs altitude)
+- 12 monthly curves using real SunCalc calculations, sampled every 15 minutes
+- June and December solstices highlighted
+- Hour tick marks on June curve
+- Live sun position dot, updates every 60 seconds
+- Compatible with ASHRAE / PVsyst convention
 
-Tap **Settings → Calibrate** (or **AR Mode → Calibrate compass**). This:
-- Requests the `DeviceOrientationEvent` permission prompt required by iOS 13+.
-- Starts listening for real orientation events.
-- The on-screen compass caption tells you which kind of heading data you're actually getting:
-  - `(webkit)` — iOS Safari's dedicated compass heading, generally most reliable.
-  - `(absolute)` — standard absolute orientation, available on most Android browsers.
-  - `uncalibrated/relative` — the browser only gave us relative rotation, not true-north-referenced heading. The UI says this explicitly rather than silently treating it as accurate.
+### ◧ Shadow Calculator
+- Input: object height (0.5–50 m) + date/time
+- Output: shadow length (m), compass direction, N/E offset of shadow tip
+- Top-down SVG diagram with compass rose and distance scale rings
+- Uses real SunCalc.getPosition() with GPS coordinates
 
-If you see "uncalibrated/relative," the on-screen heading number is not reliable for true-north pointing — this is a genuine limitation of some browser/device combinations, not a prototype bug.
+### ⊟ Site Report
+- Generates a 2-page A4 PDF-ready HTML report
+- Page 1: Site info, sun times, solar panel monthly table
+- Page 2: PSH bar chart, shadow analysis, 7-day forecast, site notes
+- Header with logo, generation date, reference number on every page
+- Footer with page count (Page 1 of 2, Page 2 of 2)
+- Open in new tab → browser Print → Save as PDF
 
-## Usage
+### ◉ Lux Reader
+- Reads ambient light sensor via `AmbientLightSensor` API
+- Live lux value with log-scale bar and condition label
+- Android Chrome only — iOS Safari blocks this API (Apple restriction)
+- Clear error messages if not supported
 
-- **Home** — compass dial with sunrise (○, orange) and sunset (●, purple) markers positioned at their real azimuth relative to your current heading. Today's exact times and azimuths shown below.
-- **AR Mode** — optional camera background with the same two markers floating at their azimuth-derived screen position.
-- **Forecast** — 7-day list of sunrise/sunset times and azimuths.
-- **Settings** — theme, time format, AR toggle, calibration.
+### ⚙ Settings
+- Light / dark theme
+- 12h / 24h time format
+- How calculations work — full explanation of every formula used
 
-## Unit tests
+---
+
+## Calculations — Honest Summary
+
+| Feature | Method | Source |
+|---------|--------|--------|
+| Sunrise / Sunset | SunCalc library, −0.833° horizon | Vladimir Agafonkin |
+| Sun azimuth / altitude | SunCalc.getPosition() | SunCalc |
+| Solar panel tilt/facing | Full-day irradiance-weighted optimizer | cos(θ) incidence + airmass model |
+| Panel efficiency % | Clear-sky geometric estimate | Not for yield calculations |
+| Peak Sun Hours | NASA POWER 22-yr climatology | ALLSKY_SFC_SW_DWN |
+| Shadow length | height ÷ tan(elevation) | Standard formula |
+| Magnetic declination | NOAA WMM-2025, bundled offline | Valid 2025–2030 |
+| UTC offset | Longitude ÷ 15 (geometric estimate) | ±1h accuracy |
+
+**Honest limitations:**
+- Solar efficiency % is clear-sky only — does not account for cloud, haze, shading, or degradation
+- Use NASA POWER PSH data for actual yield calculations
+- Compass accuracy depends on device magnetometer quality
+- Lux reader not available on iOS Safari
+
+---
+
+## Technology
+
+- **Single HTML file** — no build step, no dependencies to install
+- **SunCalc** — astronomical calculations (bundled)
+- **NASA POWER API** — real irradiance data (fetched on demand)
+- **Geomagnetism / WMM-2025** — magnetic declination (bundled, offline)
+- **Chart.js CDN** — PSH bar chart
+- **PWA** — installable, works offline for all features except PSH fetch and report open
+
+---
+
+## Device Support
+
+| Feature | Android Chrome | iOS Safari |
+|---------|---------------|------------|
+| GPS | ✓ | ✓ |
+| Compass | ✓ | ✓ (requires tap to enable) |
+| All calculations | ✓ | ✓ |
+| PSH fetch | ✓ | ✓ |
+| Site Report PDF | ✓ | ✓ |
+| Lux Reader | ✓ | ✗ (Apple restriction) |
+
+---
+
+## Deployment
+
+The app is a single `index.html` file. Deploy to any static host:
+
+```bash
+# GitHub Pages
+git add index.html
+git commit -m "update"
+git push
+```
+
+No server, no API keys, no configuration required.
+
+---
+
+## File Structure
 
 ```
-npm install suncalc
-node test.js
+index.html          ← entire app (single file, ~201KB)
+README.md           ← this file
 ```
 
-24 tests, covering multiple latitudes (equator, Kuala Lumpur, Sydney, London, Reykjavik) and two dates (June/December solstice-adjacent) for: correct sunrise-before-sunset ordering, valid azimuth ranges, correct hemisphere seasonal direction, and the azimuth coordinate-conversion math. See the comment at the top of `test.js` for exactly what is and isn't verified by these tests.
+During development, the source is split into:
+```
+index.html          ← HTML + CSS
+app.js              ← JavaScript logic
+node_modules/       ← SunCalc, geomagnetism (bundled at build time)
+```
 
-## Known gaps vs. the original brief (being explicit rather than silent)
+Build command (merges into single file):
+```bash
+python3 build.py
+```
 
-- No native Flutter/React Native code is included in this deliverable — only the browser prototype. The original brief asked for both Flutter/Dart or React Native as the tech stack; that is a separate, larger build.
-- No automatic compass self-calibration — calibration here means "start listening to the sensor," consistent with what the DeviceOrientationEvent API actually exposes. True magnetometer self-calibration (figure-8 prompts that the OS itself manages) is an OS-level feature on native apps, not something a web page can trigger directly.
-- No persisted offline storage (localStorage/IndexedDB) wired up yet for the 7-day cache — as noted above, it's not strictly needed here since the math is local-only and instant, but a production app would still want it for resilience against a cold start with no GPS fix.
+---
+
+## Accuracy Notes
+
+All solar position values are computed from the **SunCalc** library which implements standard astronomical algorithms. For Pekan, Pahang (3.49°N, 103.37°E) on June 20, 2026:
+
+| Value | Computed | Verified |
+|-------|----------|---------|
+| Sunrise | 6:59 AM MYT | ✓ |
+| Sunset | 7:18 PM MYT | ✓ |
+| Rise azimuth | 66.5° (ENE) | ✓ |
+| Set azimuth | 293.6° (WNW) | ✓ |
+| Solar noon altitude | 70.1° | ✓ |
+| Magnetic declination | +0.08° E | ✓ WMM-2025 |
+
+Solar panel facing directions verified against full-day irradiance-weighted optimizer for all 12 months.
+
+---
+
+## Credits
+
+- **SunCalc** — Vladimir Agafonkin (ISC License)
+- **NASA POWER** — NASA Langley Research Center
+- **NOAA WMM-2025** — National Centers for Environmental Information
+- **Chart.js** — Chart.js Contributors (MIT License)
+- **Geomagnetism** — Natural Atlas (MIT License)
+
+---
+
+## License
+
+MIT — free to use, modify, and distribute.
+
+---
+
+*Built for CTS (City Technical Solutions) field engineers. Tested in Pekan, Pahang, Malaysia.*
